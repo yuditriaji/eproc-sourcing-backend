@@ -1,0 +1,146 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  VENDOR
+}
+
+enum TenderStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  AWARDED
+  CANCELLED
+}
+
+enum BidStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id          String      @id @default(cuid())
+  email       String      @unique
+  username    String      @unique
+  password    String
+  firstName   String?
+  lastName    String?
+  role        UserRole    @default(USER)
+  abilities   Json?       // CASL rules like {actions: ['read'], subjects: ['Tender']}
+  isActive    Boolean     @default(true)
+  isVerified  Boolean     @default(false)
+  
+  // Audit fields
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  createdTenders  Tender[]   @relation("TenderCreator")
+  bids           Bid[]
+  auditLogs      AuditLog[] @relation("AuditUser")
+  
+  @@map("users")
+}
+
+model RoleConfig {
+  id          String      @id @default(cuid())
+  roleName    String      @unique
+  permissions Json        // Role-based permissions
+  description String?
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@map("role_configs")
+}
+
+model Tender {
+  id              String        @id @default(cuid())
+  title           String
+  description     String
+  requirements    Json          // Technical and commercial requirements
+  criteria        Json          // Evaluation criteria with weights
+  status          TenderStatus  @default(DRAFT)
+  publishedAt     DateTime?
+  closingDate     DateTime?
+  estimatedValue  Decimal?
+  category        String?
+  department      String?       // Department scoping for users
+  
+  // Relations
+  creatorId       String
+  creator         User          @relation("TenderCreator", fields: [creatorId], references: [id])
+  bids            Bid[]
+  
+  // Audit fields
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@map("tenders")
+}
+
+model Bid {
+  id              String      @id @default(cuid())
+  tenderId        String
+  vendorId        String
+  technicalScore  Decimal?
+  commercialScore Decimal?
+  totalScore      Decimal?
+  status          BidStatus   @default(DRAFT)
+  submittedAt     DateTime?
+  encryptedData   String?     // Encrypted sensitive bid data
+  
+  // Relations
+  tender          Tender      @relation(fields: [tenderId], references: [id])
+  vendor          User        @relation(fields: [vendorId], references: [id])
+  
+  // Audit fields
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@unique([tenderId, vendorId])
+  @@map("bids")
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  userId      String?
+  action      String      // create, update, delete, login, etc.
+  targetType  String?     // Tender, Bid, User, etc.
+  targetId    String?
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime    @default(now())
+  
+  // Relations
+  user        User?       @relation("AuditUser", fields: [userId], references: [id])
+  
+  @@map("audit_logs")
+}
+
+model RefreshToken {
+  id          String      @id @default(cuid())
+  token       String      @unique
+  userId      String
+  expiresAt   DateTime
+  isRevoked   Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  
+  @@map("refresh_tokens")
+}

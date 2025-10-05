@@ -1,0 +1,225 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: eproc-postgres
+    environment:
+      POSTGRES_DB: eproc_sourcing
+      POSTGRES_USER: eproc_user
+      POSTGRES_PASSWORD: eproc_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - eproc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eproc_user -d eproc_sourcing"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MongoDB for Document Storage
+  mongodb:
+    image: mongo:7-jammy
+    container_name: eproc-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: eproc_mongo
+      MONGO_INITDB_ROOT_PASSWORD: eproc_mongo_password
+      MONGO_INITDB_DATABASE: eproc_documents
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongodb/init.js:/docker-entrypoint-initdb.d/init.js
+    networks:
+      - eproc-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.admin().ping()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for Rate Limiting and Session Management
+  redis:
+    image: redis:7-alpine
+    container_name: eproc-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - eproc-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Kafka for Event Streaming
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: eproc-kafka
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    networks:
+      - eproc-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Zookeeper for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: eproc-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper
+    networks:
+      - eproc-network
+
+  # NestJS Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: eproc-backend
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://eproc_user:eproc_password@postgres:5432/eproc_sourcing
+      MONGODB_URL: mongodb://eproc_mongo:eproc_mongo_password@mongodb:27017/eproc_documents
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      JWT_SECRET: your-super-secure-jwt-secret-key-change-in-production
+      ENCRYPTION_KEY: your-32-byte-encryption-key-for-sensitive-data-change-in-production
+      THROTTLE_LIMIT_ADMIN: 100
+      THROTTLE_LIMIT_USER: 50
+      THROTTLE_LIMIT_VENDOR: 10
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - eproc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Go Scoring Microservice
+  scoring-service:
+    build:
+      context: ./go-scoring
+      dockerfile: Dockerfile
+    container_name: eproc-scoring
+    environment:
+      GO_SCORING_SERVICE_PORT: 9090
+      JWT_SECRET: your-super-secure-jwt-secret-key-change-in-production
+    ports:
+      - "9090:9090"
+    networks:
+      - eproc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy with Security Headers
+  nginx:
+    image: nginx:alpine
+    container_name: eproc-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - backend
+      - scoring-service
+    networks:
+      - eproc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ELK Stack for Logging (Optional)
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: eproc-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - eproc-network
+    profiles:
+      - logging
+
+  kibana:
+    image: kibana:8.11.0
+    container_name: eproc-kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - eproc-network
+    profiles:
+      - logging
+
+volumes:
+  postgres_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  zookeeper_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+
+networks:
+  eproc-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
