@@ -149,6 +149,10 @@ dev.db-journal
 *.bak
 *.backup
 
+# Database backups
+backup_*.sql
+*.dump
+
 # Mac specific
 .AppleDouble
 .LSOverride
