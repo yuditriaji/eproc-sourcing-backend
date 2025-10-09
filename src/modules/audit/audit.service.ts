@@ -44,7 +44,7 @@ export class AuditService {
       await this.prismaService.auditLog.create({
         data: {
           userId: data.userId,
-          action: data.action,
+          action: data.action as any, // Cast to handle enum conversion
           targetType: data.targetType,
           targetId: data.targetId,
           oldValues: data.oldValues,

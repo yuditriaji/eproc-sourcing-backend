@@ -1,0 +1,834 @@
+// Comprehensive E-Procurement Database Schema
+// Integrates tender/bid management with complete procurement workflow
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  ADMIN
+  BUYER
+  VENDOR
+  APPROVER
+  FINANCE
+  MANAGER
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_APPROVAL
+  BLACKLISTED
+}
+
+enum ContractStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+  TERMINATED
+}
+
+enum PRStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum POStatus {
+  DRAFT
+  APPROVED
+  IN_PROGRESS
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum TenderStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  AWARDED
+  CANCELLED
+}
+
+enum BidStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum QuotationStatus {
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum GoodsReceiptStatus {
+  PARTIAL
+  COMPLETE
+  REJECTED
+}
+
+enum InvoiceStatus {
+  PENDING
+  APPROVED
+  PAID
+  OVERDUE
+  DISPUTED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  REQUESTED
+  APPROVED
+  PROCESSED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentType {
+  FULL
+  DOWN_PAYMENT
+  INSTALLMENT
+  MILESTONE
+}
+
+enum VendorRole {
+  PRIMARY
+  SECONDARY
+  SUBCONTRACTOR
+}
+
+enum DocumentType {
+  CONTRACT
+  PURCHASE_ORDER
+  INVOICE
+  RECEIPT
+  SPECIFICATION
+  CERTIFICATE
+  OTHER
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  APPROVE
+  REJECT
+  SUBMIT
+}
+
+// ============================================================================
+// CORE ENTITIES
+// ============================================================================
+
+model User {
+  id          String      @id @default(cuid())
+  email       String      @unique
+  username    String      @unique
+  password    String
+  firstName   String?
+  lastName    String?
+  role        UserRole    @default(BUYER)
+  abilities   Json?       // CASL rules for fine-grained permissions
+  department  String?
+  isActive    Boolean     @default(true)
+  isVerified  Boolean     @default(false)
+  
+  // Contact information
+  phone       String?
+  address     Json?       // Flexible address structure
+  
+  // Audit fields
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?   // Soft delete
+  
+  // Relations
+  contracts           Contract[]          @relation("ContractOwner")
+  purchaseRequisitions PurchaseRequisition[]
+  createdTenders      Tender[]           @relation("TenderCreator")
+  createdPOs          PurchaseOrder[]    @relation("POCreator")
+  bids                Bid[]
+  auditLogs           AuditLog[]         @relation("AuditUser")
+  receivedPayments    Payment[]          @relation("PaymentReceiver")
+  approvedPRs         PurchaseRequisition[] @relation("PRApprover")
+  approvedPOs         PurchaseOrder[]    @relation("POApprover")
+  
+  @@map("users")
+}
+
+model Vendor {
+  id              String        @id @default(cuid())
+  name            String
+  registrationNumber String?    @unique
+  taxId           String?
+  contactEmail    String?
+  contactPhone    String?
+  website         String?
+  address         Json?         // Flexible address structure
+  bankDetails     Json?         // Bank account information
+  status          VendorStatus  @default(PENDING_APPROVAL)
+  
+  // Business information
+  businessType    String?       // Corporation, LLC, etc.
+  yearEstablished Int?
+  employeeCount   Int?
+  annualRevenue   Decimal?
+  
+  // Compliance and certifications
+  certifications  Json?         // Array of certifications
+  insuranceInfo   Json?         // Insurance details
+  
+  // Performance metrics
+  rating          Decimal?      @db.Decimal(3,2) // 0.00 to 5.00
+  totalContracts  Int           @default(0)
+  onTimeDelivery  Decimal?      @db.Decimal(5,2) // Percentage
+  
+  // Audit fields
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?     // Soft delete
+  
+  // Relations
+  contracts       ContractVendor[]
+  purchaseOrders  POVendor[]
+  bids            Bid[]
+  quotations      Quotation[]
+  invoices        Invoice[]
+  documents       Document[]
+  
+  @@map("vendors")
+}
+
+model Currency {
+  id            String    @id @default(cuid())
+  code          String    @unique @db.VarChar(3)
+  symbol        String    @db.VarChar(10)
+  name          String
+  isActive      Boolean   @default(true)
+  exchangeRate  Decimal?  @db.Decimal(10,6) // Rate to base currency
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  contracts     Contract[]
+  purchaseOrders PurchaseOrder[]
+  invoices      Invoice[]
+  quotations    Quotation[]
+  
+  @@map("currencies")
+}
+
+// ============================================================================
+// PROCUREMENT WORKFLOW
+// ============================================================================
+
+model Contract {
+  id              String          @id @default(cuid())
+  contractNumber  String          @unique
+  title           String
+  description     String?
+  
+  // Financial details
+  totalAmount     Decimal?        @db.Decimal(15,2)
+  currencyId      String?
+  
+  // Timeline
+  startDate       DateTime?
+  endDate         DateTime?
+  
+  // Status and workflow
+  status          ContractStatus  @default(DRAFT)
+  
+  // Ownership
+  ownerId         String
+  
+  // Terms and conditions
+  terms           Json?           // Contract terms as JSON
+  deliverables    Json?           // Expected deliverables
+  
+  // Audit fields
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?       // Soft delete
+  
+  // Relations
+  owner           User            @relation("ContractOwner", fields: [ownerId], references: [id])
+  currency        Currency?       @relation(fields: [currencyId], references: [id])
+  vendors         ContractVendor[]
+  purchaseRequisitions PurchaseRequisition[]
+  purchaseOrders  PurchaseOrder[]
+  tenders         Tender[]
+  documents       Document[]
+  
+  @@map("contracts")
+}
+
+model ContractVendor {
+  contractId      String
+  vendorId        String
+  role            VendorRole      @default(PRIMARY)
+  signedAt        DateTime?
+  
+  createdAt       DateTime        @default(now())
+  
+  // Relations
+  contract        Contract        @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  vendor          Vendor          @relation(fields: [vendorId], references: [id])
+  
+  @@id([contractId, vendorId])
+  @@map("contract_vendors")
+}
+
+model PurchaseRequisition {
+  id              String        @id @default(cuid())
+  prNumber        String        @unique
+  title           String
+  description     String?
+  
+  // Requirements
+  items           Json          // Array of items with specifications
+  estimatedAmount Decimal?      @db.Decimal(15,2)
+  requiredBy      DateTime?
+  justification   String?
+  
+  // Approval workflow
+  status          PRStatus      @default(PENDING)
+  approvedAt      DateTime?
+  approvedById    String?
+  rejectionReason String?
+  
+  // Relations
+  contractId      String?
+  requesterId     String
+  
+  // Audit fields
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?     // Soft delete
+  
+  // Relations
+  contract        Contract?     @relation(fields: [contractId], references: [id])
+  requester       User          @relation(fields: [requesterId], references: [id])
+  approver        User?         @relation("PRApprover", fields: [approvedById], references: [id])
+  purchaseOrders  PurchaseOrder[]
+  documents       Document[]
+  
+  @@map("purchase_requisitions")
+}
+
+model PurchaseOrder {
+  id              String        @id @default(cuid())
+  poNumber        String        @unique
+  title           String
+  description     String?
+  
+  // Financial details
+  amount          Decimal       @db.Decimal(15,2)
+  currencyId      String?
+  taxAmount       Decimal?      @db.Decimal(15,2)
+  totalAmount     Decimal?      @db.Decimal(15,2)
+  
+  // Timeline
+  orderDate       DateTime      @default(now())
+  expectedDelivery DateTime?
+  
+  // Items and specifications
+  items           Json          // Detailed line items
+  terms           Json?         // Purchase terms
+  
+  // Status and workflow
+  status          POStatus      @default(DRAFT)
+  approvedAt      DateTime?
+  approvedById    String?
+  
+  // Relations
+  prId            String?       // Can be created without PR for urgent orders
+  contractId      String?
+  createdById     String
+  
+  // Audit fields
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?     // Soft delete
+  
+  // Relations
+  purchaseRequisition PurchaseRequisition? @relation(fields: [prId], references: [id])
+  contract        Contract?     @relation(fields: [contractId], references: [id])
+  currency        Currency?     @relation(fields: [currencyId], references: [id])
+  creator         User          @relation("POCreator", fields: [createdById], references: [id])
+  approver        User?         @relation("POApprover", fields: [approvedById], references: [id])
+  vendors         POVendor[]
+  goodsReceipts   GoodsReceipt[]
+  invoices        Invoice[]
+  payments        Payment[]
+  documents       Document[]
+  
+  @@map("purchase_orders")
+}
+
+model POVendor {
+  poId            String
+  vendorId        String
+  role            VendorRole    @default(PRIMARY)
+  assignedAmount  Decimal?      @db.Decimal(15,2)
+  assignedItems   Json?         // Specific items assigned to this vendor
+  
+  createdAt       DateTime      @default(now())
+  
+  // Relations
+  purchaseOrder   PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  vendor          Vendor        @relation(fields: [vendorId], references: [id])
+  
+  @@id([poId, vendorId])
+  @@map("po_vendors")
+}
+
+// ============================================================================
+// TENDER & QUOTATION SYSTEM
+// ============================================================================
+
+model Tender {
+  id              String        @id @default(cuid())
+  tenderNumber    String        @unique
+  title           String
+  description     String
+  
+  // Requirements and criteria
+  requirements    Json          // Technical and commercial requirements
+  criteria        Json          // Evaluation criteria with weights
+  estimatedValue  Decimal?      @db.Decimal(15,2)
+  
+  // Timeline
+  publishedAt     DateTime?
+  closingDate     DateTime?
+  evaluationDate  DateTime?
+  awardDate       DateTime?
+  
+  // Classification
+  category        String?
+  department      String?
+  
+  // Status
+  status          TenderStatus  @default(DRAFT)
+  
+  // Relations
+  contractId      String?
+  creatorId       String
+  
+  // Evaluation
+  evaluationMatrix Json?        // Evaluation results
+  
+  // Audit fields
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?     // Soft delete
+  
+  // Relations
+  contract        Contract?     @relation(fields: [contractId], references: [id])
+  creator         User          @relation("TenderCreator", fields: [creatorId], references: [id])
+  bids            Bid[]
+  quotations      Quotation[]
+  documents       Document[]
+  
+  @@map("tenders")
+}
+
+model Bid {
+  id              String      @id @default(cuid())
+  tenderId        String
+  vendorId        String
+  
+  // Scoring
+  technicalScore  Decimal?    @db.Decimal(5,2)
+  commercialScore Decimal?    @db.Decimal(5,2)
+  totalScore      Decimal?    @db.Decimal(5,2)
+  
+  // Pricing
+  bidAmount       Decimal?    @db.Decimal(15,2)
+  
+  // Status and timeline
+  status          BidStatus   @default(DRAFT)
+  submittedAt     DateTime?
+  
+  // Security
+  encryptedData   String?     // Encrypted sensitive bid data
+  
+  // Bid details
+  technicalProposal Json?     // Technical proposal details
+  financialProposal Json?     // Financial breakdown
+  compliance      Json?       // Compliance checklist
+  
+  // Evaluation
+  evaluationNotes String?
+  evaluatedAt     DateTime?
+  evaluatedBy     String?
+  
+  // Audit fields
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?   // Soft delete
+  
+  // Relations
+  tender          Tender      @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  vendor          User        @relation(fields: [vendorId], references: [id])
+  documents       Document[]
+  
+  @@unique([tenderId, vendorId])
+  @@map("bids")
+}
+
+model Quotation {
+  id              String          @id @default(cuid())
+  quotationNumber String          @unique
+  tenderId        String?
+  vendorId        String
+  
+  // Financial details
+  amount          Decimal         @db.Decimal(15,2)
+  currencyId      String?
+  validUntil      DateTime?
+  
+  // Details
+  items           Json            // Quoted items with prices
+  notes           String?
+  terms           Json?           // Quotation terms
+  
+  // Evaluation
+  score           Decimal?        @db.Decimal(5,2)
+  status          QuotationStatus @default(SUBMITTED)
+  
+  // Audit fields
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?       // Soft delete
+  
+  // Relations
+  tender          Tender?         @relation(fields: [tenderId], references: [id])
+  vendor          Vendor          @relation(fields: [vendorId], references: [id])
+  currency        Currency?       @relation(fields: [currencyId], references: [id])
+  documents       Document[]
+  
+  @@map("quotations")
+}
+
+// ============================================================================
+// FULFILLMENT & FINANCIAL
+// ============================================================================
+
+model GoodsReceipt {
+  id              String            @id @default(cuid())
+  receiptNumber   String            @unique
+  poId            String
+  
+  // Receipt details
+  receivedDate    DateTime          @default(now())
+  receivedItems   Json              // Items received with quantities
+  notes           String?
+  
+  // Quality control
+  inspectionNotes String?
+  inspectedBy     String?
+  inspectedAt     DateTime?
+  
+  // Status
+  status          GoodsReceiptStatus @default(PARTIAL)
+  
+  // Audit fields
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?         // Soft delete
+  
+  // Relations
+  purchaseOrder   PurchaseOrder     @relation(fields: [poId], references: [id], onDelete: Cascade)
+  documents       Document[]
+  
+  @@map("goods_receipts")
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  poId            String?
+  vendorId        String
+  
+  // Financial details
+  amount          Decimal       @db.Decimal(15,2)
+  currencyId      String?
+  taxAmount       Decimal?      @db.Decimal(15,2)
+  totalAmount     Decimal       @db.Decimal(15,2)
+  
+  // Timeline
+  invoiceDate     DateTime      @default(now())
+  dueDate         DateTime?
+  
+  // Invoice details
+  items           Json          // Invoice line items
+  notes           String?
+  
+  // Status
+  status          InvoiceStatus @default(PENDING)
+  
+  // Audit fields
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?     // Soft delete
+  
+  // Relations
+  purchaseOrder   PurchaseOrder? @relation(fields: [poId], references: [id])
+  vendor          Vendor        @relation(fields: [vendorId], references: [id])
+  currency        Currency?     @relation(fields: [currencyId], references: [id])
+  payments        Payment[]
+  documents       Document[]
+  
+  @@map("invoices")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  paymentNumber   String        @unique
+  invoiceId       String?
+  poId            String
+  
+  // Financial details
+  amount          Decimal       @db.Decimal(15,2)
+  paymentType     PaymentType   @default(FULL)
+  
+  // Timeline
+  requestedDate   DateTime      @default(now())
+  scheduledDate   DateTime?
+  processedDate   DateTime?
+  
+  // Payment details
+  reference       String?       // Bank reference, check number, etc.
+  method          String?       // Transfer, check, card, etc.
+  notes           String?
+  
+  // Status
+  status          PaymentStatus @default(REQUESTED)
+  
+  // Approval
+  approvedBy      String?
+  approvedAt      DateTime?
+  
+  // Processing
+  receivedById    String?
+  receivedAt      DateTime?
+  
+  // Audit fields
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?     // Soft delete
+  
+  // Relations
+  invoice         Invoice?      @relation(fields: [invoiceId], references: [id])
+  purchaseOrder   PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  receiver        User?         @relation("PaymentReceiver", fields: [receivedById], references: [id])
+  documents       Document[]
+  
+  @@map("payments")
+}
+
+// ============================================================================
+// DOCUMENT MANAGEMENT
+// ============================================================================
+
+model Document {
+  id              String        @id @default(cuid())
+  fileName        String
+  originalName    String
+  filePath        String
+  fileSize        Int
+  mimeType        String
+  documentType    DocumentType  @default(OTHER)
+  
+  // Metadata
+  title           String?
+  description     String?
+  tags            String[]      // Array of tags for categorization
+  
+  // Security
+  isConfidential  Boolean       @default(false)
+  accessLevel     String?       // Public, Internal, Confidential, etc.
+  
+  // Version control
+  version         String        @default("1.0")
+  parentId        String?       // For document versioning
+  
+  // Relations (polymorphic)
+  contractId      String?
+  tenderId        String?
+  bidId           String?
+  quotationId     String?
+  prId            String?
+  poId            String?
+  receiptId       String?
+  invoiceId       String?
+  paymentId       String?
+  vendorId        String?
+  
+  // Audit fields
+  uploadedBy      String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?     // Soft delete
+  
+  // Relations
+  contract        Contract?     @relation(fields: [contractId], references: [id])
+  tender          Tender?       @relation(fields: [tenderId], references: [id])
+  bid             Bid?          @relation(fields: [bidId], references: [id])
+  quotation       Quotation?    @relation(fields: [quotationId], references: [id])
+  purchaseRequisition PurchaseRequisition? @relation(fields: [prId], references: [id])
+  purchaseOrder   PurchaseOrder? @relation(fields: [poId], references: [id])
+  goodsReceipt    GoodsReceipt? @relation(fields: [receiptId], references: [id])
+  invoice         Invoice?      @relation(fields: [invoiceId], references: [id])
+  payment         Payment?      @relation(fields: [paymentId], references: [id])
+  vendor          Vendor?       @relation(fields: [vendorId], references: [id])
+  parent          Document?     @relation("DocumentVersions", fields: [parentId], references: [id])
+  versions        Document[]    @relation("DocumentVersions")
+  
+  @@map("documents")
+}
+
+// ============================================================================
+// AUDIT & CONFIGURATION
+// ============================================================================
+
+model AuditLog {
+  id              String      @id @default(cuid())
+  userId          String?
+  action          AuditAction
+  targetType      String?     // Model name
+  targetId        String?
+  
+  // Change details
+  oldValues       Json?
+  newValues       Json?
+  
+  // Request context
+  ipAddress       String?
+  userAgent       String?
+  sessionId       String?
+  
+  // Audit trail
+  timestamp       DateTime    @default(now())
+  
+  // Relations
+  user            User?       @relation("AuditUser", fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([targetType, targetId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  id              String      @id @default(cuid())
+  key             String      @unique
+  value           Json
+  description     String?
+  category        String?     // System, Security, Workflow, etc.
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@map("system_config")
+}
+
+model RoleConfig {
+  id              String      @id @default(cuid())
+  roleName        String      @unique
+  permissions     Json        // Role-based permissions
+  description     String?
+  isActive        Boolean     @default(true)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@map("role_configs")
+}
+
+model RefreshToken {
+  id              String      @id @default(cuid())
+  token           String      @unique
+  userId          String
+  expiresAt       DateTime
+  isRevoked       Boolean     @default(false)
+  
+  createdAt       DateTime    @default(now())
+  
+  @@map("refresh_tokens")
+}
+
+// ============================================================================
+// NOTIFICATION & WORKFLOW
+// ============================================================================
+
+model Notification {
+  id              String      @id @default(cuid())
+  userId          String
+  title           String
+  message         String
+  type            String      // info, warning, error, success
+  category        String?     // procurement, tender, payment, etc.
+  
+  // Notification data
+  data            Json?       // Additional context data
+  actionUrl       String?     // URL for action button
+  
+  // Status
+  isRead          Boolean     @default(false)
+  readAt          DateTime?
+  
+  createdAt       DateTime    @default(now())
+  
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model WorkflowStep {
+  id              String      @id @default(cuid())
+  workflowType    String      // PR_APPROVAL, PO_APPROVAL, etc.
+  stepName        String
+  stepOrder       Int
+  
+  // Conditions
+  conditions      Json?       // Conditions for this step
+  assignedRole    UserRole?
+  assignedUserId  String?
+  
+  // Approval requirements
+  requiresApproval Boolean    @default(false)
+  approvalCount   Int         @default(1)
+  
+  // Time limits
+  timeoutHours    Int?
+  
+  isActive        Boolean     @default(true)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@unique([workflowType, stepOrder])
+  @@map("workflow_steps")
+}

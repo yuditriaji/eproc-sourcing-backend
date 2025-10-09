@@ -2,8 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import * as helmet from 'helmet';
-import * as cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -35,9 +35,22 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // CORS configuration
+  const corsOrigin = configService.get<string>('CORS_ORIGIN', 'http://localhost:3001');
+  logger.log(`🔗 CORS configured for origin: ${corsOrigin}`);
+  
   app.enableCors({
-    origin: configService.get<string>('CORS_ORIGIN', 'http://localhost:3001'),
-    credentials: configService.get<boolean>('CORS_CREDENTIALS', true),
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      if (origin === corsOrigin) {
+        return callback(null, true);
+      }
+      
+      logger.warn(`❌ CORS blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: [
       'Origin',
@@ -46,7 +59,11 @@ async function bootstrap() {
       'Accept',
       'Authorization',
       'Cache-Control',
+      'Access-Control-Allow-Credentials',
     ],
+    exposedHeaders: ['Set-Cookie'],
+    preflightContinue: false,
+    optionsSuccessStatus: 200,
   });
 
   // Global API prefix

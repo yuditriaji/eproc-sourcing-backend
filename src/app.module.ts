@@ -21,7 +21,22 @@ import { TenderController } from './modules/tender/tender.controller';
 import { TenderService } from './modules/tender/tender.service';
 
 // Bid Module
+import { BidController } from './modules/bid/bid.controller';
 import { BidService } from './modules/bid/bid.service';
+
+// Contract Module
+import { ContractController } from './modules/contract/contract.controller';
+import { ContractService } from './modules/contract/contract.service';
+
+// Purchase Requisition Module
+import { PurchaseRequisitionService } from './modules/purchase-requisition/purchase-requisition.service';
+
+// Purchase Order Module
+import { PurchaseOrderService } from './modules/purchase-order/purchase-order.service';
+
+// Workflow Module
+import { WorkflowService } from './modules/workflow/workflow.service';
+import { WorkflowController } from './modules/workflow/workflow.controller';
 
 // Audit Module
 import { AuditService } from './modules/audit/audit.service';
@@ -82,7 +97,7 @@ import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (config: ConfigService) => ({
-        uri: config.get<string>('MONGODB_URL'),
+        uri: config.get<string>('MONGODB_URL', 'mongodb://localhost:27017/eproc_documents'),
       }),
       inject: [ConfigService],
     }),
@@ -93,6 +108,9 @@ import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
   controllers: [
     AuthController,
     TenderController,
+    BidController,
+    ContractController,
+    WorkflowController,
   ],
   providers: [
     // Database Services
@@ -106,6 +124,10 @@ import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
     // Core Services
     TenderService,
     BidService,
+    ContractService,
+    PurchaseRequisitionService,
+    PurchaseOrderService,
+    WorkflowService,
     AuditService,
     EventService,
     
@@ -123,6 +145,10 @@ import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
     AbilityFactory,
     TenderService,
     BidService,
+    ContractService,
+    PurchaseRequisitionService,
+    PurchaseOrderService,
+    WorkflowService,
     AuditService,
     EventService,
   ],

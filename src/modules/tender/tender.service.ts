@@ -60,7 +60,18 @@ export class TenderService {
     };
 
     const tender = await this.prismaService.tender.create({
-      data: tenderData,
+      data: {
+        title: tenderData.title,
+        description: tenderData.description,
+        requirements: tenderData.requirements,
+        criteria: tenderData.criteria,
+        estimatedValue: tenderData.estimatedValue,
+        closingDate: tenderData.closingDate,
+        category: tenderData.category,
+        department: tenderData.department,
+        creatorId: userId,
+        tenderNumber: `TDR-${Date.now()}`, // Temporary number generation
+      },
       include: {
         creator: {
           select: {
@@ -155,8 +166,8 @@ export class TenderService {
             submittedAt: true,
             vendor: {
               select: {
-                username: true,
-                email: true,
+                name: true,
+                contactEmail: true,
               },
             },
           },
@@ -182,8 +193,8 @@ export class TenderService {
           include: {
             vendor: {
               select: {
-                username: true,
-                email: true,
+                name: true,
+                contactEmail: true,
               },
             },
           },
@@ -192,8 +203,8 @@ export class TenderService {
           include: {
             vendor: {
               select: {
-                username: true,
-                email: true,
+                name: true,
+                contactEmail: true,
               },
             },
           },

@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,10 +7,534 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  username             String                @unique
+  password             String
+  firstName            String?
+  lastName             String?
+  role                 UserRole              @default(BUYER)
+  abilities            Json?
+  department           String?
+  isActive             Boolean               @default(true)
+  isVerified           Boolean               @default(false)
+  phone                String?
+  address              Json?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  deletedAt            DateTime?
+  auditLogs            AuditLog[]            @relation("AuditUser")
+  contracts            Contract[]            @relation("ContractOwner")
+  receivedPayments     Payment[]             @relation("PaymentReceiver")
+  approvedPOs          PurchaseOrder[]       @relation("POApprover")
+  createdPOs           PurchaseOrder[]       @relation("POCreator")
+  approvedPRs          PurchaseRequisition[] @relation("PRApprover")
+  purchaseRequisitions PurchaseRequisition[]
+  createdTenders       Tender[]              @relation("TenderCreator")
+
+  @@map("users")
+}
+
+model Vendor {
+  id                 String           @id @default(cuid())
+  name               String
+  registrationNumber String?          @unique
+  taxId              String?
+  contactEmail       String?
+  contactPhone       String?
+  website            String?
+  address            Json?
+  bankDetails        Json?
+  status             VendorStatus     @default(PENDING_APPROVAL)
+  businessType       String?
+  yearEstablished    Int?
+  employeeCount      Int?
+  annualRevenue      Decimal?
+  certifications     Json?
+  insuranceInfo      Json?
+  rating             Decimal?         @db.Decimal(3, 2)
+  totalContracts     Int              @default(0)
+  onTimeDelivery     Decimal?         @db.Decimal(5, 2)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
+  bids               Bid[]
+  contracts          ContractVendor[]
+  documents          Document[]
+  invoices           Invoice[]
+  purchaseOrders     POVendor[]
+  quotations         Quotation[]
+
+  @@map("vendors")
+}
+
+model Currency {
+  id             String          @id @default(cuid())
+  code           String          @unique @db.VarChar(3)
+  symbol         String          @db.VarChar(10)
+  name           String
+  isActive       Boolean         @default(true)
+  exchangeRate   Decimal?        @db.Decimal(10, 6)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  contracts      Contract[]
+  invoices       Invoice[]
+  purchaseOrders PurchaseOrder[]
+  quotations     Quotation[]
+
+  @@map("currencies")
+}
+
+model Contract {
+  id                   String                @id @default(cuid())
+  contractNumber       String                @unique
+  title                String
+  description          String?
+  totalAmount          Decimal?              @db.Decimal(15, 2)
+  currencyId           String?
+  startDate            DateTime?
+  endDate              DateTime?
+  status               ContractStatus        @default(DRAFT)
+  ownerId              String
+  terms                Json?
+  deliverables         Json?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  deletedAt            DateTime?
+  vendors              ContractVendor[]
+  currency             Currency?             @relation(fields: [currencyId], references: [id])
+  owner                User                  @relation("ContractOwner", fields: [ownerId], references: [id])
+  documents            Document[]
+  purchaseOrders       PurchaseOrder[]
+  purchaseRequisitions PurchaseRequisition[]
+  tenders              Tender[]
+
+  @@map("contracts")
+}
+
+model ContractVendor {
+  contractId String
+  vendorId   String
+  role       VendorRole @default(PRIMARY)
+  signedAt   DateTime?
+  createdAt  DateTime   @default(now())
+  contract   Contract   @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  vendor     Vendor     @relation(fields: [vendorId], references: [id])
+
+  @@id([contractId, vendorId])
+  @@map("contract_vendors")
+}
+
+model PurchaseRequisition {
+  id              String          @id @default(cuid())
+  prNumber        String          @unique
+  title           String
+  description     String?
+  items           Json
+  estimatedAmount Decimal?        @db.Decimal(15, 2)
+  requiredBy      DateTime?
+  justification   String?
+  status          PRStatus        @default(PENDING)
+  approvedAt      DateTime?
+  approvedById    String?
+  rejectionReason String?
+  contractId      String?
+  requesterId     String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  documents       Document[]
+  purchaseOrders  PurchaseOrder[]
+  approver        User?           @relation("PRApprover", fields: [approvedById], references: [id])
+  contract        Contract?       @relation(fields: [contractId], references: [id])
+  requester       User            @relation(fields: [requesterId], references: [id])
+
+  @@map("purchase_requisitions")
+}
+
+model PurchaseOrder {
+  id                  String               @id @default(cuid())
+  poNumber            String               @unique
+  title               String
+  description         String?
+  amount              Decimal              @db.Decimal(15, 2)
+  currencyId          String?
+  taxAmount           Decimal?             @db.Decimal(15, 2)
+  totalAmount         Decimal?             @db.Decimal(15, 2)
+  orderDate           DateTime             @default(now())
+  expectedDelivery    DateTime?
+  items               Json
+  terms               Json?
+  status              POStatus             @default(DRAFT)
+  approvedAt          DateTime?
+  approvedById        String?
+  prId                String?
+  contractId          String?
+  createdById         String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+  documents           Document[]
+  goodsReceipts       GoodsReceipt[]
+  invoices            Invoice[]
+  payments            Payment[]
+  vendors             POVendor[]
+  approver            User?                @relation("POApprover", fields: [approvedById], references: [id])
+  contract            Contract?            @relation(fields: [contractId], references: [id])
+  creator             User                 @relation("POCreator", fields: [createdById], references: [id])
+  currency            Currency?            @relation(fields: [currencyId], references: [id])
+  purchaseRequisition PurchaseRequisition? @relation(fields: [prId], references: [id])
+
+  @@map("purchase_orders")
+}
+
+model POVendor {
+  poId           String
+  vendorId       String
+  role           VendorRole    @default(PRIMARY)
+  assignedAmount Decimal?      @db.Decimal(15, 2)
+  assignedItems  Json?
+  createdAt      DateTime      @default(now())
+  purchaseOrder  PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  vendor         Vendor        @relation(fields: [vendorId], references: [id])
+
+  @@id([poId, vendorId])
+  @@map("po_vendors")
+}
+
+model Tender {
+  id               String       @id @default(cuid())
+  tenderNumber     String       @unique
+  title            String
+  description      String
+  requirements     Json
+  criteria         Json
+  estimatedValue   Decimal?     @db.Decimal(15, 2)
+  publishedAt      DateTime?
+  closingDate      DateTime?
+  evaluationDate   DateTime?
+  awardDate        DateTime?
+  category         String?
+  department       String?
+  status           TenderStatus @default(DRAFT)
+  contractId       String?
+  creatorId        String
+  evaluationMatrix Json?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  deletedAt        DateTime?
+  bids             Bid[]
+  documents        Document[]
+  quotations       Quotation[]
+  contract         Contract?    @relation(fields: [contractId], references: [id])
+  creator          User         @relation("TenderCreator", fields: [creatorId], references: [id])
+
+  @@map("tenders")
+}
+
+model Bid {
+  id                String     @id @default(cuid())
+  tenderId          String
+  vendorId          String
+  technicalScore    Decimal?   @db.Decimal(5, 2)
+  commercialScore   Decimal?   @db.Decimal(5, 2)
+  totalScore        Decimal?   @db.Decimal(5, 2)
+  bidAmount         Decimal?   @db.Decimal(15, 2)
+  status            BidStatus  @default(DRAFT)
+  submittedAt       DateTime?
+  encryptedData     String?
+  technicalProposal Json?
+  financialProposal Json?
+  compliance        Json?
+  evaluationNotes   String?
+  evaluatedAt       DateTime?
+  evaluatedBy       String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  deletedAt         DateTime?
+  tender            Tender     @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  vendor            Vendor     @relation(fields: [vendorId], references: [id])
+  documents         Document[]
+
+  @@unique([tenderId, vendorId])
+  @@map("bids")
+}
+
+model Quotation {
+  id              String          @id @default(cuid())
+  quotationNumber String          @unique
+  tenderId        String?
+  vendorId        String
+  amount          Decimal         @db.Decimal(15, 2)
+  currencyId      String?
+  validUntil      DateTime?
+  items           Json
+  notes           String?
+  terms           Json?
+  score           Decimal?        @db.Decimal(5, 2)
+  status          QuotationStatus @default(SUBMITTED)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  documents       Document[]
+  currency        Currency?       @relation(fields: [currencyId], references: [id])
+  tender          Tender?         @relation(fields: [tenderId], references: [id])
+  vendor          Vendor          @relation(fields: [vendorId], references: [id])
+
+  @@map("quotations")
+}
+
+model GoodsReceipt {
+  id              String             @id @default(cuid())
+  receiptNumber   String             @unique
+  poId            String
+  receivedDate    DateTime           @default(now())
+  receivedItems   Json
+  notes           String?
+  inspectionNotes String?
+  inspectedBy     String?
+  inspectedAt     DateTime?
+  status          GoodsReceiptStatus @default(PARTIAL)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?
+  documents       Document[]
+  purchaseOrder   PurchaseOrder      @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@map("goods_receipts")
+}
+
+model Invoice {
+  id            String         @id @default(cuid())
+  invoiceNumber String         @unique
+  poId          String?
+  vendorId      String
+  amount        Decimal        @db.Decimal(15, 2)
+  currencyId    String?
+  taxAmount     Decimal?       @db.Decimal(15, 2)
+  totalAmount   Decimal        @db.Decimal(15, 2)
+  invoiceDate   DateTime       @default(now())
+  dueDate       DateTime?
+  items         Json
+  notes         String?
+  status        InvoiceStatus  @default(PENDING)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+  documents     Document[]
+  currency      Currency?      @relation(fields: [currencyId], references: [id])
+  purchaseOrder PurchaseOrder? @relation(fields: [poId], references: [id])
+  vendor        Vendor         @relation(fields: [vendorId], references: [id])
+  payments      Payment[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  paymentNumber String        @unique
+  invoiceId     String?
+  poId          String
+  amount        Decimal       @db.Decimal(15, 2)
+  paymentType   PaymentType   @default(FULL)
+  requestedDate DateTime      @default(now())
+  scheduledDate DateTime?
+  processedDate DateTime?
+  reference     String?
+  method        String?
+  notes         String?
+  status        PaymentStatus @default(REQUESTED)
+  approvedBy    String?
+  approvedAt    DateTime?
+  receivedById  String?
+  receivedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?
+  documents     Document[]
+  invoice       Invoice?      @relation(fields: [invoiceId], references: [id])
+  purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  receiver      User?         @relation("PaymentReceiver", fields: [receivedById], references: [id])
+
+  @@map("payments")
+}
+
+model Document {
+  id                  String               @id @default(cuid())
+  fileName            String
+  originalName        String
+  filePath            String
+  fileSize            Int
+  mimeType            String
+  documentType        DocumentType         @default(OTHER)
+  title               String?
+  description         String?
+  tags                String[]
+  isConfidential      Boolean              @default(false)
+  accessLevel         String?
+  version             String               @default("1.0")
+  parentId            String?
+  contractId          String?
+  tenderId            String?
+  bidId               String?
+  quotationId         String?
+  prId                String?
+  poId                String?
+  receiptId           String?
+  invoiceId           String?
+  paymentId           String?
+  vendorId            String?
+  uploadedBy          String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+  bid                 Bid?                 @relation(fields: [bidId], references: [id])
+  contract            Contract?            @relation(fields: [contractId], references: [id])
+  invoice             Invoice?             @relation(fields: [invoiceId], references: [id])
+  parent              Document?            @relation("DocumentVersions", fields: [parentId], references: [id])
+  versions            Document[]           @relation("DocumentVersions")
+  payment             Payment?             @relation(fields: [paymentId], references: [id])
+  purchaseOrder       PurchaseOrder?       @relation(fields: [poId], references: [id])
+  purchaseRequisition PurchaseRequisition? @relation(fields: [prId], references: [id])
+  quotation           Quotation?           @relation(fields: [quotationId], references: [id])
+  goodsReceipt        GoodsReceipt?        @relation(fields: [receiptId], references: [id])
+  tender              Tender?              @relation(fields: [tenderId], references: [id])
+  vendor              Vendor?              @relation(fields: [vendorId], references: [id])
+
+  @@map("documents")
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?
+  action     AuditAction
+  targetType String?
+  targetId   String?
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  userAgent  String?
+  sessionId  String?
+  timestamp  DateTime    @default(now())
+  user       User?       @relation("AuditUser", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([targetType, targetId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  category    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_config")
+}
+
+model RoleConfig {
+  id          String   @id @default(cuid())
+  roleName    String   @unique
+  permissions Json
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("role_configs")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  category  String?
+  data      Json?
+  actionUrl String?
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model WorkflowStep {
+  id               String    @id @default(cuid())
+  workflowType     String
+  stepName         String
+  stepOrder        Int
+  conditions       Json?
+  assignedRole     UserRole?
+  assignedUserId   String?
+  requiresApproval Boolean   @default(false)
+  approvalCount    Int       @default(1)
+  timeoutHours     Int?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([workflowType, stepOrder])
+  @@map("workflow_steps")
+}
+
 enum UserRole {
   ADMIN
-  USER
+  BUYER
   VENDOR
+  APPROVER
+  FINANCE
+  MANAGER
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_APPROVAL
+  BLACKLISTED
+}
+
+enum ContractStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+  TERMINATED
+}
+
+enum PRStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum POStatus {
+  DRAFT
+  APPROVED
+  IN_PROGRESS
+  DELIVERED
+  COMPLETED
+  CANCELLED
 }
 
 enum TenderStatus {
@@ -30,117 +551,69 @@ enum BidStatus {
   UNDER_REVIEW
   ACCEPTED
   REJECTED
+  WITHDRAWN
 }
 
-model User {
-  id          String      @id @default(cuid())
-  email       String      @unique
-  username    String      @unique
-  password    String
-  firstName   String?
-  lastName    String?
-  role        UserRole    @default(USER)
-  abilities   Json?       // CASL rules like {actions: ['read'], subjects: ['Tender']}
-  isActive    Boolean     @default(true)
-  isVerified  Boolean     @default(false)
-  
-  // Audit fields
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
-  // Relations
-  createdTenders  Tender[]   @relation("TenderCreator")
-  bids           Bid[]
-  auditLogs      AuditLog[] @relation("AuditUser")
-  
-  @@map("users")
+enum QuotationStatus {
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  EXPIRED
 }
 
-model RoleConfig {
-  id          String      @id @default(cuid())
-  roleName    String      @unique
-  permissions Json        // Role-based permissions
-  description String?
-  
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
-  @@map("role_configs")
+enum GoodsReceiptStatus {
+  PARTIAL
+  COMPLETE
+  REJECTED
 }
 
-model Tender {
-  id              String        @id @default(cuid())
-  title           String
-  description     String
-  requirements    Json          // Technical and commercial requirements
-  criteria        Json          // Evaluation criteria with weights
-  status          TenderStatus  @default(DRAFT)
-  publishedAt     DateTime?
-  closingDate     DateTime?
-  estimatedValue  Decimal?
-  category        String?
-  department      String?       // Department scoping for users
-  
-  // Relations
-  creatorId       String
-  creator         User          @relation("TenderCreator", fields: [creatorId], references: [id])
-  bids            Bid[]
-  
-  // Audit fields
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
-  @@map("tenders")
+enum InvoiceStatus {
+  PENDING
+  APPROVED
+  PAID
+  OVERDUE
+  DISPUTED
+  CANCELLED
 }
 
-model Bid {
-  id              String      @id @default(cuid())
-  tenderId        String
-  vendorId        String
-  technicalScore  Decimal?
-  commercialScore Decimal?
-  totalScore      Decimal?
-  status          BidStatus   @default(DRAFT)
-  submittedAt     DateTime?
-  encryptedData   String?     // Encrypted sensitive bid data
-  
-  // Relations
-  tender          Tender      @relation(fields: [tenderId], references: [id])
-  vendor          User        @relation(fields: [vendorId], references: [id])
-  
-  // Audit fields
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
-  @@unique([tenderId, vendorId])
-  @@map("bids")
+enum PaymentStatus {
+  REQUESTED
+  APPROVED
+  PROCESSED
+  FAILED
+  CANCELLED
 }
 
-model AuditLog {
-  id          String      @id @default(cuid())
-  userId      String?
-  action      String      // create, update, delete, login, etc.
-  targetType  String?     // Tender, Bid, User, etc.
-  targetId    String?
-  oldValues   Json?
-  newValues   Json?
-  ipAddress   String?
-  userAgent   String?
-  timestamp   DateTime    @default(now())
-  
-  // Relations
-  user        User?       @relation("AuditUser", fields: [userId], references: [id])
-  
-  @@map("audit_logs")
+enum PaymentType {
+  FULL
+  DOWN_PAYMENT
+  INSTALLMENT
+  MILESTONE
 }
 
-model RefreshToken {
-  id          String      @id @default(cuid())
-  token       String      @unique
-  userId      String
-  expiresAt   DateTime
-  isRevoked   Boolean     @default(false)
-  createdAt   DateTime    @default(now())
-  
-  @@map("refresh_tokens")
+enum VendorRole {
+  PRIMARY
+  SECONDARY
+  SUBCONTRACTOR
+}
+
+enum DocumentType {
+  CONTRACT
+  PURCHASE_ORDER
+  INVOICE
+  RECEIPT
+  SPECIFICATION
+  CERTIFICATE
+  OTHER
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  APPROVE
+  REJECT
+  SUBMIT
 }

@@ -94,12 +94,12 @@ export class BidService {
             status: true,
           },
         },
-        vendor: {
-          select: {
-            username: true,
-            email: true,
-          },
-        },
+            vendor: {
+              select: {
+                name: true,
+                contactEmail: true,
+              },
+            },
       },
     });
 
@@ -174,12 +174,12 @@ export class BidService {
             closingDate: true,
           },
         },
-        vendor: {
-          select: {
-            username: true,
-            email: true,
-          },
-        },
+            vendor: {
+              select: {
+                name: true,
+                contactEmail: true,
+              },
+            },
       },
     });
 
@@ -212,12 +212,12 @@ export class BidService {
             creatorId: true,
           },
         },
-        vendor: {
-          select: {
-            username: true,
-            email: true,
-          },
-        },
+            vendor: {
+              select: {
+                name: true,
+                contactEmail: true,
+              },
+            },
       },
     });
 

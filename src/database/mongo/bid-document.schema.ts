@@ -89,7 +89,7 @@ BidDocumentSchema.pre('save', function(next) {
   if (this.isModified('encryptedContent') && this.encryptedContent && !this.isEncrypted) {
     const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'fallback-key', 'salt', 32);
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher('aes-256-gcm', key);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
     
     let encrypted = cipher.update(this.encryptedContent, 'utf8', 'hex');
     encrypted += cipher.final('hex');

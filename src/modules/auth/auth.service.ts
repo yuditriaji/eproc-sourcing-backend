@@ -66,7 +66,7 @@ export class AuthService {
     if (!user) {
       // Log failed login attempt
       await this.auditService.log({
-        action: 'login_failed',
+        action: 'LOGIN',
         targetType: 'User',
         targetId: null,
         ipAddress,
@@ -80,7 +80,7 @@ export class AuthService {
     if (!user.isActive) {
       await this.auditService.log({
         userId: user.id,
-        action: 'login_failed',
+        action: 'LOGIN',
         targetType: 'User',
         targetId: user.id,
         ipAddress,
@@ -94,7 +94,7 @@ export class AuthService {
     if (!user.isVerified) {
       await this.auditService.log({
         userId: user.id,
-        action: 'login_failed',
+        action: 'LOGIN',
         targetType: 'User',
         targetId: user.id,
         ipAddress,
@@ -111,7 +111,7 @@ export class AuthService {
     if (!isPasswordValid) {
       await this.auditService.log({
         userId: user.id,
-        action: 'login_failed',
+        action: 'LOGIN',
         targetType: 'User',
         targetId: user.id,
         ipAddress,
@@ -158,7 +158,7 @@ export class AuthService {
     // Log successful login
     await this.auditService.log({
       userId: user.id,
-      action: 'login_success',
+      action: 'LOGIN',
       targetType: 'User',
       targetId: user.id,
       ipAddress,
@@ -269,7 +269,7 @@ export class AuthService {
     try {
       await this.auditService.log({
         userId: user.id,
-        action: 'user_registered',
+        action: 'CREATE',
         targetType: 'User',
         targetId: user.id,
         ipAddress,
@@ -333,7 +333,7 @@ export class AuthService {
       // Log token refresh
       await this.auditService.log({
         userId: user.id,
-        action: 'token_refreshed',
+        action: 'LOGIN',
         targetType: 'User',
         targetId: user.id,
         ipAddress,
@@ -361,7 +361,7 @@ export class AuthService {
       // Log logout
       await this.auditService.log({
         userId,
-        action: 'logout',
+        action: 'LOGOUT',
         targetType: 'User',
         targetId: userId,
         ipAddress,
@@ -371,7 +371,7 @@ export class AuthService {
       // Even if token verification fails, log the logout attempt
       await this.auditService.log({
         userId,
-        action: 'logout_failed',
+        action: 'LOGOUT',
         targetType: 'User',
         targetId: userId,
         ipAddress,
