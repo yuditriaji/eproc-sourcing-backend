@@ -156,3 +156,6 @@ backup_*.sql
 # Mac specific
 .AppleDouble
 .LSOverride
+
+# Cookie jars / local cookies
+cookies.txt

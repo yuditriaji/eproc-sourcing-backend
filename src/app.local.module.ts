@@ -20,6 +20,7 @@ import { TenderService } from './modules/tender/tender.service';
 
 // Bid Module (simplified without MongoDB)
 import { BidService } from './modules/bid/bid.service';
+import { BidController } from './modules/bid/bid.controller';
 
 // Audit Module
 import { AuditService } from './modules/audit/audit.service';
@@ -79,6 +80,7 @@ import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
   controllers: [
     AuthController,
     TenderController,
+    BidController,
   ],
   providers: [
     // Database Services

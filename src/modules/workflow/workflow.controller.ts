@@ -16,7 +16,10 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { WorkflowService } from './workflow.service';
 import { ApiResponse } from '../../common/interfaces/api-response.interface';
+import { ApiTags, ApiOperation, ApiResponse as ApiResponseDoc, ApiBearerAuth } from '@nestjs/swagger';
 
+@ApiTags('Workflow')
+@ApiBearerAuth()
 @Controller('workflows')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class WorkflowController {
@@ -26,9 +29,14 @@ export class WorkflowController {
   // PROCUREMENT WORKFLOW 1: Contract → PR → PO → Goods Receipt → Invoice → Payment
   // ============================================================================
 
-  @Post('procurement/initiate/:contractId')
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
-  async initiateProcurement(
+@Post('procurement/initiate/:contractId')
+@Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+@ApiOperation({ summary: 'Initiate procurement workflow from a contract' })
+@ApiResponseDoc({ status: 200, description: 'Workflow initiated' })
+@ApiResponseDoc({ status: 400, description: 'Bad request' })
+@ApiResponseDoc({ status: 401, description: 'Unauthorized' })
+@ApiResponseDoc({ status: 403, description: 'Forbidden' })
+async initiateProcurement(
     @Param('contractId') contractId: string,
     @Request() req: any,
   ): Promise<ApiResponse> {
@@ -55,9 +63,14 @@ export class WorkflowController {
     }
   }
 
-  @Post('procurement/create-pr/:contractId')
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
-  async createPRFromContract(
+@Post('procurement/create-pr/:contractId')
+@Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+@ApiOperation({ summary: 'Create Purchase Requisition (PR) from a contract' })
+@ApiResponseDoc({ status: 201, description: 'PR created successfully' })
+@ApiResponseDoc({ status: 400, description: 'Bad request' })
+@ApiResponseDoc({ status: 401, description: 'Unauthorized' })
+@ApiResponseDoc({ status: 403, description: 'Forbidden' })
+async createPRFromContract(
     @Param('contractId') contractId: string,
     @Body() prData: {
       title: string;
@@ -96,9 +109,14 @@ export class WorkflowController {
     }
   }
 
-  @Post('procurement/approve-pr/:prId')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.APPROVER)
-  async approvePR(
+@Post('procurement/approve-pr/:prId')
+@Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.APPROVER)
+@ApiOperation({ summary: 'Approve or reject a Purchase Requisition (PR)' })
+@ApiResponseDoc({ status: 200, description: 'PR approved/rejected' })
+@ApiResponseDoc({ status: 400, description: 'Bad request' })
+@ApiResponseDoc({ status: 401, description: 'Unauthorized' })
+@ApiResponseDoc({ status: 403, description: 'Forbidden' })
+async approvePR(
     @Param('prId') prId: string,
     @Body() approvalData: {
       approved: boolean;
@@ -131,9 +149,14 @@ export class WorkflowController {
     }
   }
 
-  @Post('procurement/create-po/:prId')
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
-  async createPOFromPR(
+@Post('procurement/create-po/:prId')
+@Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+@ApiOperation({ summary: 'Create Purchase Order (PO) from an approved PR' })
+@ApiResponseDoc({ status: 201, description: 'PO created successfully' })
+@ApiResponseDoc({ status: 400, description: 'Bad request' })
+@ApiResponseDoc({ status: 401, description: 'Unauthorized' })
+@ApiResponseDoc({ status: 403, description: 'Forbidden' })
+async createPOFromPR(
     @Param('prId') prId: string,
     @Body() poData: {
       vendorIds: string[];
@@ -164,9 +187,14 @@ export class WorkflowController {
     }
   }
 
-  @Post('procurement/approve-po/:poId')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.APPROVER)
-  async approvePO(
+@Post('procurement/approve-po/:poId')
+@Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.APPROVER)
+@ApiOperation({ summary: 'Approve or reject a Purchase Order (PO)' })
+@ApiResponseDoc({ status: 200, description: 'PO approved/rejected' })
+@ApiResponseDoc({ status: 400, description: 'Bad request' })
+@ApiResponseDoc({ status: 401, description: 'Unauthorized' })
+@ApiResponseDoc({ status: 403, description: 'Forbidden' })
+async approvePO(
     @Param('poId') poId: string,
     @Body() approvalData: {
       approved: boolean;
@@ -199,9 +227,14 @@ export class WorkflowController {
     }
   }
 
-  @Post('procurement/goods-receipt/:poId')
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
-  async createGoodsReceipt(
+@Post('procurement/goods-receipt/:poId')
+@Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+@ApiOperation({ summary: 'Create Goods Receipt for a PO' })
+@ApiResponseDoc({ status: 201, description: 'Goods Receipt created successfully' })
+@ApiResponseDoc({ status: 400, description: 'Bad request' })
+@ApiResponseDoc({ status: 401, description: 'Unauthorized' })
+@ApiResponseDoc({ status: 403, description: 'Forbidden' })
+async createGoodsReceipt(
     @Param('poId') poId: string,
     @Body() receiptData: {
       receivedDate?: string;
@@ -243,9 +276,14 @@ export class WorkflowController {
   // TENDER WORKFLOW 2: Create Tender → Vendor Submission → Evaluation → Award
   // ============================================================================
 
-  @Post('tender/create/:contractId')
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
-  async createTenderFromContract(
+@Post('tender/create/:contractId')
+@Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+@ApiOperation({ summary: 'Create Tender from a Contract' })
+@ApiResponseDoc({ status: 201, description: 'Tender created successfully' })
+@ApiResponseDoc({ status: 400, description: 'Bad request' })
+@ApiResponseDoc({ status: 401, description: 'Unauthorized' })
+@ApiResponseDoc({ status: 403, description: 'Forbidden' })
+async createTenderFromContract(
     @Param('contractId') contractId: string,
     @Body() tenderData: {
       title: string;
@@ -286,9 +324,14 @@ export class WorkflowController {
     }
   }
 
-  @Post('tender/publish/:tenderId')
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
-  async publishTender(
+@Post('tender/publish/:tenderId')
+@Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+@ApiOperation({ summary: 'Publish a Tender' })
+@ApiResponseDoc({ status: 200, description: 'Tender published successfully' })
+@ApiResponseDoc({ status: 400, description: 'Bad request' })
+@ApiResponseDoc({ status: 401, description: 'Unauthorized' })
+@ApiResponseDoc({ status: 403, description: 'Forbidden' })
+async publishTender(
     @Param('tenderId') tenderId: string,
     @Request() req: any,
   ): Promise<ApiResponse> {
@@ -312,9 +355,15 @@ export class WorkflowController {
     }
   }
 
-  @Post('tender/submit-bid/:tenderId')
-  @Roles(UserRole.VENDOR)
-  async submitBid(
+@Post('tender/submit-bid/:tenderId')
+@Roles(UserRole.VENDOR)
+@ApiOperation({ summary: 'Submit Bid for a Tender (Vendor)' })
+@ApiResponseDoc({ status: 201, description: 'Bid submitted successfully' })
+@ApiResponseDoc({ status: 400, description: 'Bad request' })
+@ApiResponseDoc({ status: 401, description: 'Unauthorized' })
+@ApiResponseDoc({ status: 403, description: 'Forbidden' })
+@ApiResponseDoc({ status: 404, description: 'Tender not found' })
+async submitBid(
     @Param('tenderId') tenderId: string,
     @Body() bidData: {
       bidAmount?: number;
@@ -348,9 +397,15 @@ export class WorkflowController {
     }
   }
 
-  @Post('tender/close/:tenderId')
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
-  async closeTender(
+@Post('tender/close/:tenderId')
+@Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+@ApiOperation({ summary: 'Close a Tender' })
+@ApiResponseDoc({ status: 200, description: 'Tender closed successfully' })
+@ApiResponseDoc({ status: 400, description: 'Bad request' })
+@ApiResponseDoc({ status: 401, description: 'Unauthorized' })
+@ApiResponseDoc({ status: 403, description: 'Forbidden' })
+@ApiResponseDoc({ status: 404, description: 'Tender not found' })
+async closeTender(
     @Param('tenderId') tenderId: string,
     @Request() req: any,
   ): Promise<ApiResponse> {
@@ -374,9 +429,15 @@ export class WorkflowController {
     }
   }
 
-  @Post('tender/evaluate-bid/:bidId')
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
-  async evaluateBid(
+@Post('tender/evaluate-bid/:bidId')
+@Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+@ApiOperation({ summary: 'Evaluate a Bid' })
+@ApiResponseDoc({ status: 200, description: 'Bid evaluated successfully' })
+@ApiResponseDoc({ status: 400, description: 'Bad request' })
+@ApiResponseDoc({ status: 401, description: 'Unauthorized' })
+@ApiResponseDoc({ status: 403, description: 'Forbidden' })
+@ApiResponseDoc({ status: 404, description: 'Bid not found' })
+async evaluateBid(
     @Param('bidId') bidId: string,
     @Body() evaluation: {
       technicalScore: number;
