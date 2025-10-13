@@ -8,9 +8,10 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  
+
+  const isProd = (process.env.NODE_ENV || '').toLowerCase() === 'production';
   const app = await NestFactory.create(AppModule, {
-    logger: ['log', 'error', 'warn', 'debug', 'verbose'],
+    logger: isProd ? ['log', 'error', 'warn'] : ['log', 'error', 'warn', 'debug', 'verbose'],
   });
 
   const configService = app.get(ConfigService);
@@ -18,18 +19,20 @@ async function bootstrap() {
   const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
 
   // Security middleware
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:"],
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "https:"],
+        },
       },
-    },
-    crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: 'cross-origin' },
-  }));
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
 
   // Cookie parser for refresh tokens
   app.use(cookieParser());
@@ -37,16 +40,16 @@ async function bootstrap() {
   // CORS configuration
   const corsOrigin = configService.get<string>('CORS_ORIGIN', 'http://localhost:3001');
   logger.log(`🔗 CORS configured for origin: ${corsOrigin}`);
-  
+
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-      
+
       if (origin === corsOrigin) {
         return callback(null, true);
       }
-      
+
       logger.warn(`❌ CORS blocked request from origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     },
@@ -83,10 +86,16 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger API documentation
-  const config = new DocumentBuilder()
-    .setTitle('E-Procurement Sourcing API')
-    .setDescription(`
+  // Conditionally enable Swagger API documentation (default: off in production)
+  const enableSwaggerEnv = configService.get<string>('ENABLE_SWAGGER');
+  const enableSwagger = enableSwaggerEnv
+    ? enableSwaggerEnv === 'true'
+    : configService.get<string>('NODE_ENV') !== 'production';
+
+  if (enableSwagger) {
+    const config = new DocumentBuilder()
+      .setTitle('E-Procurement Sourcing API')
+      .setDescription(`
       Enterprise Procurement Sourcing Backend with comprehensive role-based access control.
       
       ## Authentication
@@ -109,36 +118,39 @@ async function bootstrap() {
       4. **Camunda workflow** manages approval process
       5. **Events** trigger notifications and integrations
     `)
-    .setVersion('1.0')
-    .addBearerAuth({
-      type: 'http',
-      scheme: 'bearer',
-      bearerFormat: 'JWT',
-      description: 'Enter JWT token',
-    })
-    .addTag('Authentication', 'User authentication and authorization')
-    .addTag('Sourcing - Tenders', 'Tender management with role-based access')
-    .addTag('Sourcing - Bids', 'Vendor bid submission with encryption')
-    .addTag('Scoring', 'Bid evaluation and scoring (Admin/User only)')
-    .addTag('Audit', 'System audit logs and compliance')
-    .build();
+      .setVersion('1.0')
+      .addBearerAuth({
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Enter JWT token',
+      })
+      .addTag('Authentication', 'User authentication and authorization')
+      .addTag('Sourcing - Tenders', 'Tender management with role-based access')
+      .addTag('Sourcing - Bids', 'Vendor bid submission with encryption')
+      .addTag('Scoring', 'Bid evaluation and scoring (Admin/User only)')
+      .addTag('Audit', 'System audit logs and compliance')
+      .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  
-  // Custom Swagger options with role-based examples
-  const swaggerOptions = {
-    explorer: true,
-    swaggerOptions: {
-      persistAuthorization: true,
-      displayRequestDuration: true,
-      docExpansion: 'none',
-      filter: true,
-      showRequestHeaders: true,
-      tagsSorter: 'alpha',
-    },
-  };
+    const document = SwaggerModule.createDocument(app, config);
 
-  SwaggerModule.setup(`${apiPrefix}/docs`, app, document, swaggerOptions);
+    // Custom Swagger options with role-based examples
+    const swaggerOptions = {
+      explorer: true,
+      swaggerOptions: {
+        persistAuthorization: true,
+        displayRequestDuration: true,
+        docExpansion: 'none',
+        filter: true,
+        showRequestHeaders: true,
+        tagsSorter: 'alpha',
+      },
+    } as const;
+
+    SwaggerModule.setup(`${apiPrefix}/docs`, app, document, swaggerOptions);
+  } else {
+    logger.log('📚 Swagger is disabled for this environment');
+  }
 
   // Health check endpoint
   app.getHttpAdapter().get('/health', (req, res) => {
@@ -165,9 +177,11 @@ async function bootstrap() {
   });
 
   await app.listen(port, '0.0.0.0'); // Bind to all interfaces for deployment
-  
+
   logger.log(`🚀 Application is running on: http://localhost:${port}/${apiPrefix}`);
-  logger.log(`📚 Swagger documentation: http://localhost:${port}/${apiPrefix}/docs`);
+  if (enableSwagger) {
+    logger.log(`📚 Swagger documentation: http://localhost:${port}/${apiPrefix}/docs`);
+  }
   logger.log(`💖 Health check: http://localhost:${port}/health`);
   logger.log(`🔒 Security: Helmet, CORS, Rate Limiting, Validation enabled`);
   logger.log(`🎭 Roles: ADMIN (unlimited), USER (50/min), VENDOR (10/min)`);

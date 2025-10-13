@@ -48,6 +48,14 @@ import { EventService } from './modules/events/event.service';
 import { RolesGuard } from './common/guards/roles.guard';
 import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
 
+// Conditionally include MongoDB modules only when MONGODB_URL is provided
+const mongooseImports = process.env.MONGODB_URL
+  ? [
+      MongooseModule.forRoot(process.env.MONGODB_URL),
+      MongooseModule.forFeature([{ name: BidDocument.name, schema: BidDocumentSchema }]),
+    ]
+  : [];
+
 @Module({
   imports: [
     // Configuration
@@ -93,17 +101,8 @@ import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
       inject: [ConfigService],
     }),
 
-    // MongoDB for document storage
-    MongooseModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: async (config: ConfigService) => ({
-        uri: config.get<string>('MONGODB_URL', 'mongodb://localhost:27017/eproc_documents'),
-      }),
-      inject: [ConfigService],
-    }),
-    MongooseModule.forFeature([
-      { name: BidDocument.name, schema: BidDocumentSchema }
-    ]),
+    // MongoDB for document storage (enabled only if MONGODB_URL is set)
+    ...mongooseImports,
   ],
   controllers: [
     AuthController,
@@ -115,12 +114,12 @@ import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
   providers: [
     // Database Services
     PrismaService,
-    
+
     // Authentication & Authorization
     AuthService,
     JwtStrategy,
     AbilityFactory,
-    
+
     // Core Services
     TenderService,
     BidService,
@@ -130,7 +129,7 @@ import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
     WorkflowService,
     AuditService,
     EventService,
-    
+
     // Guards
     {
       provide: APP_GUARD,
