@@ -10,6 +10,9 @@ export type BidDocumentDocument = BidDocument & Document;
 })
 export class BidDocument {
   @Prop({ required: true, index: true })
+  tenantId: string;
+
+  @Prop({ required: true, index: true })
   bidId: string;
 
   @Prop({ required: true, index: true })
@@ -80,14 +83,16 @@ export class BidDocument {
 export const BidDocumentSchema = SchemaFactory.createForClass(BidDocument);
 
 // Add index for efficient querying
-BidDocumentSchema.index({ bidId: 1, documentType: 1 });
-BidDocumentSchema.index({ vendorId: 1, tenderId: 1 });
-BidDocumentSchema.index({ isSubmitted: 1, submittedAt: 1 });
+BidDocumentSchema.index({ tenantId: 1, bidId: 1, documentType: 1 });
+BidDocumentSchema.index({ tenantId: 1, vendorId: 1, tenderId: 1 });
+BidDocumentSchema.index({ tenantId: 1, isSubmitted: 1, submittedAt: 1 });
 
-// Encrypt sensitive content before saving
+// Encrypt sensitive content before saving using per-tenant derived key
 BidDocumentSchema.pre('save', function(next) {
   if (this.isModified('encryptedContent') && this.encryptedContent && !this.isEncrypted) {
-    const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'fallback-key', 'salt', 32);
+    const base = process.env.ENCRYPTION_KEY || 'fallback-key';
+    const tenantComponent = this.tenantId || 'no-tenant';
+    const key = crypto.scryptSync(`${base}:${tenantComponent}`, 'salt', 32);
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
     

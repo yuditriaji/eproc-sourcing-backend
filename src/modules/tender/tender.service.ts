@@ -60,7 +60,7 @@ export class TenderService {
     };
 
     const tender = await this.prismaService.tender.create({
-      data: {
+      data: ({
         title: tenderData.title,
         description: tenderData.description,
         requirements: tenderData.requirements,
@@ -71,7 +71,7 @@ export class TenderService {
         department: tenderData.department,
         creatorId: userId,
         tenderNumber: `TDR-${Date.now()}`, // Temporary number generation
-      },
+      } as any),
       include: {
         creator: {
           select: {
@@ -179,7 +179,7 @@ export class TenderService {
   }
 
   async getTenderById(tenderId: string, userId: string, userRole: string) {
-    const tender = await this.prismaService.tender.findUnique({
+const tender = await this.prismaService.tender.findFirst({
       where: { id: tenderId },
       include: {
         creator: {
@@ -232,7 +232,7 @@ export class TenderService {
     ipAddress: string,
     userAgent: string,
   ) {
-    const existingTender = await this.prismaService.tender.findUnique({
+const existingTender = await this.prismaService.tender.findFirst({
       where: { id: tenderId },
     });
 
@@ -302,7 +302,7 @@ export class TenderService {
     ipAddress: string,
     userAgent: string,
   ) {
-    const tender = await this.prismaService.tender.findUnique({
+const tender = await this.prismaService.tender.findFirst({
       where: { id: tenderId },
     });
 
@@ -362,7 +362,7 @@ export class TenderService {
     ipAddress: string,
     userAgent: string,
   ) {
-    const tender = await this.prismaService.tender.findUnique({
+const tender = await this.prismaService.tender.findFirst({
       where: { id: tenderId },
     });
 

@@ -122,7 +122,7 @@ export class GetTendersQuery {
 
 @ApiTags('Sourcing - Tenders')
 @ApiForbiddenResponse({ description: 'Insufficient Role' })
-@Controller('tenders')
+@Controller(':tenant/tenders')
 @UseGuards(AuthGuard('jwt'))
 @UseInterceptors(ClassSerializerInterceptor)
 export class TenderController {

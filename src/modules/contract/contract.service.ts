@@ -40,16 +40,16 @@ export class ContractService {
   async create(createContractDto: CreateContractDto, ownerId: string): Promise<Contract> {
     try {
       // Check if contract number is unique
-      const existingContract = await this.prisma.contract.findUnique({
-        where: { contractNumber: createContractDto.contractNumber },
-      });
+const existingContract = await this.prisma.contract.findFirst({
+      where: { contractNumber: createContractDto.contractNumber },
+    });
 
       if (existingContract) {
         throw new BadRequestException('Contract number already exists');
       }
 
       const contract = await this.prisma.contract.create({
-        data: {
+        data: ({
           contractNumber: createContractDto.contractNumber,
           title: createContractDto.title,
           description: createContractDto.description,
@@ -61,7 +61,7 @@ export class ContractService {
           deliverables: createContractDto.deliverables,
           ownerId,
           status: ContractStatus.DRAFT,
-        },
+        } as any),
         include: {
           owner: true,
           currency: true,
@@ -253,7 +253,7 @@ export class ContractService {
     }));
 
     await this.prisma.contractVendor.createMany({
-      data: contractVendors,
+      data: contractVendors as any,
       skipDuplicates: true,
     });
 
@@ -278,12 +278,10 @@ export class ContractService {
   async removeVendor(contractId: string, vendorId: string, userId: string): Promise<void> {
     await this.findOne(contractId); // Check if contract exists
 
-    await this.prisma.contractVendor.delete({
+await this.prisma.contractVendor.deleteMany({
       where: {
-        contractId_vendorId: {
-          contractId,
-          vendorId,
-        },
+        contractId,
+        vendorId,
       },
     });
 

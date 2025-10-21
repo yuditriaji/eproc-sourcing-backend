@@ -12,8 +12,10 @@ declare global {
         role: string;
         abilities?: any;
         department?: string;
+        tenantId?: string;
       };
       ability?: any;
+      tenantId?: string;
     }
   }
 }

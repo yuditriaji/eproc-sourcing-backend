@@ -258,7 +258,7 @@ export class WorkflowService {
       const receiptNumber = await this.generateReceiptNumber();
       
       const receipt = await this.prisma.goodsReceipt.create({
-        data: {
+        data: ({
           receiptNumber,
           poId,
           receivedDate: receiptData.receivedDate || new Date(),
@@ -267,7 +267,7 @@ export class WorkflowService {
           inspectionNotes: receiptData.inspectionNotes,
           inspectedBy: receiptData.inspectedBy,
           status: 'COMPLETE', // Assuming full delivery for now
-        },
+        } as any),
         include: {
           purchaseOrder: {
             include: {
@@ -333,7 +333,7 @@ export class WorkflowService {
       const tenderNumber = await this.generateTenderNumber();
       
       const tender = await this.prisma.tender.create({
-        data: {
+        data: ({
           tenderNumber,
           title: tenderData.title,
           description: tenderData.description,
@@ -346,7 +346,7 @@ export class WorkflowService {
           contractId,
           creatorId,
           status: TenderStatus.DRAFT,
-        },
+        } as any),
         include: {
           contract: true,
           creator: true,
@@ -437,7 +437,7 @@ export class WorkflowService {
       }
 
       const bid = await this.prisma.bid.create({
-        data: {
+        data: ({
           tenderId,
           vendorId,
           bidAmount: bidData.bidAmount,
@@ -446,7 +446,7 @@ export class WorkflowService {
           compliance: bidData.compliance,
           status: BidStatus.SUBMITTED,
           submittedAt: new Date(),
-        },
+        } as any),
         include: {
           tender: true,
           vendor: true,

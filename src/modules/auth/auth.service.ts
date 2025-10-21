@@ -31,6 +31,7 @@ export interface AuthResult {
     lastName?: string;
     role: string;
     abilities?: any;
+    tenantId: string;
   };
 }
 
@@ -43,12 +44,16 @@ export class AuthService {
     private auditService: AuditService,
   ) {}
 
-  async login(loginDto: LoginDto, ipAddress: string, userAgent: string): Promise<AuthResult> {
+  async login(loginDto: LoginDto, ipAddress: string, userAgent: string, tenantId?: string): Promise<AuthResult> {
     const { email, password } = loginDto;
 
     // Find user with password
-    const user = await this.prismaService.user.findUnique({
-      where: { email },
+    if (!tenantId) {
+      throw new BadRequestException('Missing tenant id');
+    }
+
+    const user = await this.prismaService.user.findFirst({
+      where: { email, tenantId },
       select: {
         id: true,
         email: true,
@@ -128,6 +133,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       abilities: user.abilities,
+      tenantId,
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -136,7 +142,7 @@ export class AuthService {
 
     const refreshTokenId = uuidv4();
     const refreshToken = this.jwtService.sign(
-      { sub: user.id, tokenId: refreshTokenId },
+      { sub: user.id, tokenId: refreshTokenId, tenantId },
       {
         secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
         expiresIn: this.configService.get<string>('REFRESH_TOKEN_EXPIRY', '7d'),
@@ -152,6 +158,7 @@ export class AuthService {
         token: refreshTokenId,
         userId: user.id,
         expiresAt,
+        tenantId,
       },
     });
 
@@ -176,16 +183,22 @@ export class AuthService {
         lastName: user.lastName,
         role: user.role,
         abilities: user.abilities,
+        tenantId,
       },
     };
   }
 
-  async register(registerDto: RegisterDto, ipAddress: string, userAgent: string): Promise<AuthResult> {
+  async register(registerDto: RegisterDto, ipAddress: string, userAgent: string, tenantId?: string): Promise<AuthResult> {
     const { email, username, password, firstName, lastName, role = 'USER' } = registerDto;
 
     // Check if user already exists
+    if (!tenantId) {
+      throw new BadRequestException('Missing tenant id');
+    }
+
     const existingUser = await this.prismaService.user.findFirst({
       where: {
+        tenantId,
         OR: [
           { email },
           { username },
@@ -252,6 +265,7 @@ export class AuthService {
         role: role as any,
         abilities: defaultAbilities,
         isVerified: role !== 'VENDOR', // Auto-verify admin and users, vendors need manual verification
+        tenantId,
       },
       select: {
         id: true,
@@ -294,12 +308,12 @@ export class AuthService {
       });
 
       // Check if refresh token exists and is not revoked
-      const storedToken = await this.prismaService.refreshToken.findUnique({
-        where: { token: payload.tokenId },
+      const storedToken = await this.prismaService.refreshToken.findFirst({
+        where: { token: (payload as any).tokenId, tenantId: (payload as any).tenantId },
       }) as any;
       
-      const user = await this.prismaService.user.findUnique({
-        where: { id: payload.sub },
+      const user = await this.prismaService.user.findFirst({
+        where: { id: (payload as any).sub, tenantId: (payload as any).tenantId },
         select: {
           id: true,
           email: true,
@@ -324,6 +338,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         abilities: user.abilities,
+        tenantId: (payload as any).tenantId,
       };
 
       const accessToken = this.jwtService.sign(newPayload, {
@@ -353,7 +368,7 @@ export class AuthService {
       });
 
       // Revoke refresh token
-      await this.prismaService.refreshToken.update({
+      await this.prismaService.refreshToken.updateMany({
         where: { token: payload.tokenId },
         data: { isRevoked: true },
       });
@@ -387,6 +402,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       abilities: user.abilities,
+      tenantId: user.tenantId,
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -395,7 +411,7 @@ export class AuthService {
 
     const refreshTokenId = uuidv4();
     const refreshToken = this.jwtService.sign(
-      { sub: user.id, tokenId: refreshTokenId },
+      { sub: user.id, tokenId: refreshTokenId, tenantId: user.tenantId },
       {
         secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
         expiresIn: this.configService.get<string>('REFRESH_TOKEN_EXPIRY', '7d'),
@@ -411,6 +427,7 @@ export class AuthService {
         token: refreshTokenId,
         userId: user.id,
         expiresAt,
+        tenantId: user.tenantId,
       },
     });
 
@@ -425,6 +442,7 @@ export class AuthService {
         lastName: user.lastName,
         role: user.role,
         abilities: user.abilities,
+        tenantId: user.tenantId,
       },
     };
   }

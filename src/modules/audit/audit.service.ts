@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma/prisma.service';
 import * as winston from 'winston';
+import { TenantContext } from '../../common/tenant/tenant-context';
 
 export interface AuditLogData {
   userId?: string;
@@ -18,7 +19,7 @@ export interface AuditLogData {
 export class AuditService {
   private logger: winston.Logger;
 
-  constructor(private prismaService: PrismaService) {
+  constructor(private prismaService: PrismaService, private readonly tenantContext: TenantContext) {
     this.logger = winston.createLogger({
       level: 'info',
       format: winston.format.combine(
@@ -43,6 +44,7 @@ export class AuditService {
       // Store in database
       await this.prismaService.auditLog.create({
         data: {
+          tenantId: this.tenantContext.getTenantId()!,
           userId: data.userId,
           action: data.action as any, // Cast to handle enum conversion
           targetType: data.targetType,

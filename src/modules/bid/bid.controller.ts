@@ -79,7 +79,7 @@ export class GetBidsQuery {
 
 @ApiTags('Sourcing - Bids')
 @ApiForbiddenResponse({ description: 'Insufficient Role' })
-@Controller('bids')
+@Controller(':tenant/bids')
 @UseGuards(AuthGuard('jwt'))
 @UseInterceptors(ClassSerializerInterceptor)
 export class BidController {

@@ -45,7 +45,7 @@ export class PurchaseRequisitionService {
       const prNumber = createPRDto.prNumber || await this.generatePRNumber();
 
       // Check if PR number is unique
-      const existingPR = await this.prisma.purchaseRequisition.findUnique({
+const existingPR = await this.prisma.purchaseRequisition.findFirst({
         where: { prNumber },
       });
 
@@ -69,7 +69,7 @@ export class PurchaseRequisitionService {
       }
 
       const pr = await this.prisma.purchaseRequisition.create({
-        data: {
+        data: ({
           prNumber,
           title: createPRDto.title,
           description: createPRDto.description,
@@ -80,7 +80,7 @@ export class PurchaseRequisitionService {
           contractId: createPRDto.contractId,
           requesterId,
           status: PRStatus.PENDING,
-        },
+        } as any),
         include: {
           requester: true,
           contract: true,
@@ -204,7 +204,7 @@ export class PurchaseRequisitionService {
 
     // Check if user is the requester or has approval rights
     if (existingPR.requesterId !== userId) {
-      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+const user = await this.prisma.user.findFirst({ where: { id: userId } });
       if (!user || ![UserRole.ADMIN, UserRole.MANAGER, UserRole.APPROVER].includes(user.role as any)) {
         throw new ForbiddenException('You can only update your own PRs');
       }
@@ -245,7 +245,7 @@ export class PurchaseRequisitionService {
     }
 
     // Check if user has approval rights
-    const approver = await this.prisma.user.findUnique({ where: { id: approverId } });
+const approver = await this.prisma.user.findFirst({ where: { id: approverId } });
     if (!approver || ![UserRole.ADMIN, UserRole.MANAGER, UserRole.APPROVER].includes(approver.role as any)) {
       throw new ForbiddenException('You do not have permission to approve PRs');
     }
@@ -299,7 +299,7 @@ export class PurchaseRequisitionService {
 
     // Check if user can cancel this PR
     if (pr.requesterId !== userId) {
-      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+const user = await this.prisma.user.findFirst({ where: { id: userId } });
       if (!user || ![UserRole.ADMIN, UserRole.MANAGER].includes(user.role as any)) {
         throw new ForbiddenException('You can only cancel your own PRs');
       }
@@ -435,7 +435,7 @@ export class PurchaseRequisitionService {
 
   async getPendingApprovalsForUser(userId: string): Promise<PurchaseRequisition[]> {
     // Get user role to determine what PRs they can approve
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+const user = await this.prisma.user.findFirst({ where: { id: userId } });
     if (!user || ![UserRole.ADMIN, UserRole.MANAGER, UserRole.APPROVER].includes(user.role as any)) {
       return [];
     }

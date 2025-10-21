@@ -53,7 +53,7 @@ export class PurchaseOrderService {
       const poNumber = createPODto.poNumber || await this.generatePONumber();
 
       // Check if PO number is unique
-      const existingPO = await this.prisma.purchaseOrder.findUnique({
+const existingPO = await this.prisma.purchaseOrder.findFirst({
         where: { poNumber },
       });
 
@@ -92,7 +92,7 @@ export class PurchaseOrderService {
         (createPODto.amount + (createPODto.taxAmount || 0));
 
       const po = await this.prisma.purchaseOrder.create({
-        data: {
+        data: ({
           poNumber,
           title: createPODto.title,
           description: createPODto.description,
@@ -107,7 +107,7 @@ export class PurchaseOrderService {
           contractId: createPODto.contractId,
           createdById,
           status: POStatus.DRAFT,
-        },
+        } as any),
         include: {
           purchaseRequisition: true,
           contract: true,
@@ -254,7 +254,7 @@ export class PurchaseOrderService {
 
     // Check if user has permission to update
     if (existingPO.createdById !== userId) {
-      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+const user = await this.prisma.user.findFirst({ where: { id: userId } });
       if (!user || ![UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE].includes(user.role as any)) {
         throw new ForbiddenException('You can only update your own POs');
       }
@@ -329,7 +329,7 @@ export class PurchaseOrderService {
     }
 
     // Check if user has approval rights
-    const approver = await this.prisma.user.findUnique({ where: { id: approverId } });
+const approver = await this.prisma.user.findFirst({ where: { id: approverId } });
     if (!approver || ![UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.APPROVER].includes(approver.role as any)) {
       throw new ForbiddenException('You do not have permission to approve POs');
     }
@@ -395,7 +395,7 @@ export class PurchaseOrderService {
     }));
 
     await this.prisma.pOVendor.createMany({
-      data: poVendors,
+      data: poVendors as any,
       skipDuplicates: true,
     });
 
@@ -420,12 +420,10 @@ export class PurchaseOrderService {
   async removeVendor(poId: string, vendorId: string, userId: string): Promise<void> {
     await this.findOne(poId); // Check if PO exists
 
-    await this.prisma.pOVendor.delete({
+await this.prisma.pOVendor.deleteMany({
       where: {
-        poId_vendorId: {
-          poId,
-          vendorId,
-        },
+        poId,
+        vendorId,
       },
     });
 
@@ -450,7 +448,7 @@ export class PurchaseOrderService {
 
     // Check if user has permission
     if (po.createdById !== userId) {
-      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+const user = await this.prisma.user.findFirst({ where: { id: userId } });
       if (!user || ![UserRole.ADMIN, UserRole.MANAGER].includes(user.role as any)) {
         throw new ForbiddenException('You can only delete your own POs');
       }

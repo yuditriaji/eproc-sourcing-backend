@@ -20,7 +20,7 @@ import { ApiTags, ApiOperation, ApiResponse as ApiResponseDoc, ApiBearerAuth } f
 
 @ApiTags('Workflow')
 @ApiBearerAuth()
-@Controller('workflows')
+@Controller(':tenant/workflows')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class WorkflowController {
   constructor(private readonly workflowService: WorkflowService) {}

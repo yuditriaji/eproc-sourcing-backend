@@ -23,7 +23,7 @@ import { ApiTags, ApiOperation, ApiResponse as ApiResponseDoc, ApiBearerAuth } f
 
 @ApiTags('Contracts')
 @ApiBearerAuth()
-@Controller('contracts')
+@Controller(':tenant/contracts')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ContractController {
   constructor(private readonly contractService: ContractService) {}

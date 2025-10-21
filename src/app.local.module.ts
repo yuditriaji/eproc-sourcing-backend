@@ -1,9 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 // Database
 import { PrismaService } from './database/prisma/prisma.service';
@@ -31,6 +31,16 @@ import { EventService } from './modules/events/event.service';
 // Guards
 import { RolesGuard } from './common/guards/roles.guard';
 import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
+
+// Tenancy
+import { TenantContext } from './common/tenant/tenant-context';
+import { TenantInterceptor } from './common/tenant/tenant.interceptor';
+import { DbTenantSessionInterceptor } from './common/tenant/db-tenant-session.interceptor';
+import { TenantMiddleware } from './common/middleware/tenant.middleware';
+
+// Tenant Provisioning
+import { TenantService } from './modules/tenant/tenant.service';
+import { TenantController as TenantsController } from './modules/tenant/tenant.controller';
 
 @Module({
   imports: [
@@ -79,10 +89,22 @@ import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
   ],
   controllers: [
     AuthController,
+    TenantsController,
     TenderController,
     BidController,
   ],
   providers: [
+    // Tenancy
+    TenantContext,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TenantInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: DbTenantSessionInterceptor,
+    },
+
     // Database Services
     PrismaService,
     
@@ -96,6 +118,9 @@ import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
     BidService,
     AuditService,
     EventService,
+
+    // Tenant Provisioning
+    TenantService,
     
     // Guards
     {
@@ -115,4 +140,8 @@ import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
     EventService,
   ],
 })
-export class AppLocalModule {}
+export class AppLocalModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(TenantMiddleware).forRoutes('*');
+  }
+}

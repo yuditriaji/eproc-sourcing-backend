@@ -8,6 +8,7 @@ export interface JwtPayload {
   sub: string;
   email: string;
   role: string;
+  tenantId?: string;
   abilities?: any[];
   iat?: number;
   exp?: number;
@@ -28,9 +29,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<any> {
-    // Validate the user still exists and is active
-    const user = await this.prismaService.user.findUnique({
-      where: { id: payload.sub },
+    // Validate the user still exists, belongs to tenant, and is active
+    const user = await this.prismaService.user.findFirst({
+      where: { id: payload.sub, tenantId: payload.tenantId },
       select: {
         id: true,
         email: true,
@@ -62,6 +63,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       lastName: user.lastName,
       role: user.role,
       abilities: user.abilities,
+      tenantId: payload.tenantId,
     };
   }
 }

@@ -1,10 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { MongooseModule } from '@nestjs/mongoose';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 // Database
 import { PrismaService } from './database/prisma/prisma.service';
@@ -47,6 +47,16 @@ import { EventService } from './modules/events/event.service';
 // Guards
 import { RolesGuard } from './common/guards/roles.guard';
 import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
+
+// Tenancy
+import { TenantContext } from './common/tenant/tenant-context';
+import { TenantInterceptor } from './common/tenant/tenant.interceptor';
+import { DbTenantSessionInterceptor } from './common/tenant/db-tenant-session.interceptor';
+import { TenantMiddleware } from './common/middleware/tenant.middleware';
+
+// Tenant Provisioning
+import { TenantService } from './modules/tenant/tenant.service';
+import { TenantController as TenantsController } from './modules/tenant/tenant.controller';
 
 // Conditionally include MongoDB modules only when MONGODB_URL is provided
 const mongooseImports = process.env.MONGODB_URL
@@ -106,6 +116,7 @@ const mongooseImports = process.env.MONGODB_URL
   ],
   controllers: [
     AuthController,
+    TenantsController,
     TenderController,
     BidController,
     ContractController,
@@ -130,6 +141,20 @@ const mongooseImports = process.env.MONGODB_URL
     AuditService,
     EventService,
 
+    // Tenancy
+    TenantContext,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TenantInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: DbTenantSessionInterceptor,
+    },
+
+    // Tenant Provisioning
+    TenantService,
+
     // Guards
     {
       provide: APP_GUARD,
@@ -152,4 +177,8 @@ const mongooseImports = process.env.MONGODB_URL
     EventService,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(TenantMiddleware).forRoutes('*');
+  }
+}

@@ -18,6 +18,7 @@ import { IsEmail, IsString, MinLength, MaxLength, IsOptional } from 'class-valid
 import { AuthService, LoginDto as ILoginDto, RegisterDto as IRegisterDto } from './auth.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { TenantContext } from '../../common/tenant/tenant-context';
 
 export class LoginDto implements ILoginDto {
   @IsEmail()
@@ -57,11 +58,14 @@ export class RegisterDto implements IRegisterDto {
 }
 
 @ApiTags('Authentication')
-@Controller('auth')
+@Controller(':tenant/auth')
 @UseInterceptors(ClassSerializerInterceptor)
 @UseGuards(ThrottlerGuard)
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly tenantContext: TenantContext,
+  ) {}
 
   @Post('login')
   @ApiOperation({
@@ -95,7 +99,8 @@ export class AuthController {
     const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
     const userAgent = req.get('User-Agent') || 'unknown';
 
-    const result = await this.authService.login(loginDto, ipAddress, userAgent);
+    const tenantId = this.tenantContext.getTenantId();
+    const result = await this.authService.login(loginDto, ipAddress, userAgent, tenantId);
 
     // Set refresh token as httpOnly cookie
     res.cookie('refreshToken', result.refreshToken, {
@@ -132,7 +137,8 @@ export class AuthController {
     const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
     const userAgent = req.get('User-Agent') || 'unknown';
 
-    const result = await this.authService.register(registerDto, ipAddress, userAgent);
+    const tenantId = this.tenantContext.getTenantId();
+    const result = await this.authService.register(registerDto, ipAddress, userAgent, tenantId);
 
     // Set refresh token as httpOnly cookie for verified users
     res.cookie('refreshToken', result.refreshToken, {

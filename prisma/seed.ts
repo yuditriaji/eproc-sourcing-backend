@@ -6,17 +6,36 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database with test data...');
   
+  // Optional: filter by --tenant=<slug> for single-tenant seed
+  const argv = process.argv.slice(2);
+  const tenantArg = argv.find((a) => a.startsWith('--tenant='))?.split('=')[1];
+
+  // Tenants
+  const tenantA = await prisma.tenant.upsert({
+    where: { subdomain: tenantArg || 'tenant-a' },
+    update: { name: tenantArg ? tenantArg : 'Tenant A', residencyTag: 'us', subdomain: tenantArg || 'tenant-a' },
+    create: { name: tenantArg || 'Tenant A', subdomain: tenantArg || 'tenant-a', residencyTag: 'us' },
+  });
+  const tenantB = tenantArg
+    ? null
+    : await prisma.tenant.upsert({
+        where: { subdomain: 'tenant-b' },
+        update: { name: 'Tenant B', residencyTag: 'eu', subdomain: 'tenant-b' },
+        create: { name: 'Tenant B', subdomain: 'tenant-b', residencyTag: 'eu' },
+      });
+
   // Hash passwords for test accounts
   const saltRounds = 12;
   const adminPassword = await bcrypt.hash('admin123', saltRounds);
   const userPassword = await bcrypt.hash('user123', saltRounds);
   const vendorPassword = await bcrypt.hash('vendor123', saltRounds);
   
-  // Create test users
+  // Create test users for tenant A
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@eproc.local' },
+where: { tenantId_email: { tenantId: tenantA.id, email: 'admin@eproc.local' } as any },
     update: {},
     create: {
+      tenantId: tenantA.id,
       email: 'admin@eproc.local',
       username: 'admin',
       password: adminPassword,
@@ -35,15 +54,16 @@ async function main() {
   });
 
   const user = await prisma.user.upsert({
-    where: { email: 'user@eproc.local' },
+where: { tenantId_email: { tenantId: tenantA.id, email: 'user@eproc.local' } as any },
     update: {},
     create: {
+      tenantId: tenantA.id,
       email: 'user@eproc.local',
       username: 'procurement_user',
       password: userPassword,
       firstName: 'John',
       lastName: 'Doe',
-      role: 'USER',
+      role: 'BUYER',
       isActive: true,
       isVerified: true,
       abilities: [
@@ -60,10 +80,11 @@ async function main() {
     },
   });
 
-  const vendor = await prisma.user.upsert({
-    where: { email: 'vendor@eproc.local' },
+  const vendorUser = await prisma.user.upsert({
+where: { tenantId_email: { tenantId: tenantA.id, email: 'vendor@eproc.local' } as any },
     update: {},
     create: {
+      tenantId: tenantA.id,
       email: 'vendor@eproc.local',
       username: 'acme_vendor',
       password: vendorPassword,
@@ -89,14 +110,29 @@ async function main() {
 
   console.log('👑 Created admin user:', admin.email);
   console.log('👤 Created user:', user.email);
-  console.log('🏢 Created vendor:', vendor.email);
+  console.log('🏢 Created vendor user:', vendorUser.email);
+  if (tenantB) {
+    console.log('✅ Created second tenant tenant-b');
+  }
+
+  // Create a Vendor entity for seeding bids
+  const vendorEntity = await prisma.vendor.create({
+    data: {
+      tenantId: tenantA.id,
+      name: 'ACME Corp',
+      contactEmail: 'vendor@eproc.local',
+      status: 'ACTIVE' as any,
+    },
+  });
 
   // Create sample tender
   const sampleTender = await prisma.tender.upsert({
-    where: { id: 'sample-tender-1' },
+where: { tenantId_tenderNumber: { tenantId: tenantA.id, tenderNumber: 'TND-0001' } as any },
     update: {},
     create: {
       id: 'sample-tender-1',
+      tenantId: tenantA.id,
+      tenderNumber: 'TND-0001',
       title: 'IT Equipment Procurement',
       description: 'Procurement of laptops, desktop computers, and accessories for the IT department',
       requirements: {
@@ -166,15 +202,17 @@ async function main() {
   // Create sample bid
   const sampleBid = await prisma.bid.upsert({
     where: { 
-      tenderId_vendorId: {
+      tenantId_tenderId_vendorId: {
+        tenantId: tenantA.id,
         tenderId: sampleTender.id,
-        vendorId: vendor.id
-      }
+        vendorId: vendorEntity.id,
+      } as any
     },
     update: {},
     create: {
+      tenantId: tenantA.id,
       tenderId: sampleTender.id,
-      vendorId: vendor.id,
+      vendorId: vendorEntity.id,
       status: 'DRAFT',
       encryptedData: JSON.stringify({
         technicalProposal: {
@@ -225,8 +263,9 @@ async function main() {
   // Create some audit logs
   await prisma.auditLog.create({
     data: {
+      tenantId: tenantA.id,
       userId: admin.id,
-      action: 'user_created',
+      action: 'CREATE' as any,
       targetType: 'User',
       targetId: user.id,
       newValues: { role: 'USER', email: user.email },
@@ -237,8 +276,9 @@ async function main() {
 
   await prisma.auditLog.create({
     data: {
+      tenantId: tenantA.id,
       userId: user.id,
-      action: 'tender_created',
+      action: 'CREATE' as any,
       targetType: 'Tender',
       targetId: sampleTender.id,
       newValues: { title: sampleTender.title, status: 'DRAFT' },
@@ -249,8 +289,9 @@ async function main() {
 
   await prisma.auditLog.create({
     data: {
+      tenantId: tenantA.id,
       userId: user.id,
-      action: 'tender_published',
+      action: 'SUBMIT' as any,
       targetType: 'Tender',
       targetId: sampleTender.id,
       oldValues: { status: 'DRAFT' },
@@ -268,7 +309,7 @@ async function main() {
   console.log('│ Role   │ Email                │ Password │ Description          │');
   console.log('├─────────────────────────────────────────────────────────────┤');
   console.log('│ ADMIN  │ admin@eproc.local    │ admin123 │ Full system access   │');
-  console.log('│ USER   │ user@eproc.local     │ user123  │ Create tenders       │');
+  console.log('│ BUYER  │ user@eproc.local     │ user123  │ Create tenders       │');
   console.log('│ VENDOR │ vendor@eproc.local   │ vendor123│ Submit bids          │');
   console.log('└─────────────────────────────────────────────────────────────┘');
   console.log('\n📋 Sample Data Created:');

@@ -7,10 +7,79 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Multitenancy core
+model Tenant {
+  id            String   @id @default(cuid())
+  name          String
+  subdomain     String?  @unique
+  residencyTag  String   // e.g., 'eu', 'us', 'apac'
+  config        Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  users         User[]
+  vendors       Vendor[]
+  currencies    Currency[]
+  contracts     Contract[]
+  contractVendors ContractVendor[]
+  purchaseRequisitions PurchaseRequisition[]
+  purchaseOrders PurchaseOrder[]
+  poVendors     POVendor[]
+  tenders       Tender[]
+  bids          Bid[]
+  quotations    Quotation[]
+  goodsReceipts GoodsReceipt[]
+  invoices      Invoice[]
+  payments      Payment[]
+  documents     Document[]
+  auditLogs     AuditLog[]
+  systemConfigs SystemConfig[]
+  roleConfigs   RoleConfig[]
+  refreshTokens RefreshToken[]
+  notifications Notification[]
+  workflowSteps WorkflowStep[]
+  tenantKeys    TenantKey[]
+  outbox        Outbox[]
+
+  @@map("tenants")
+}
+
+model TenantKey {
+  tenantId     String
+  version      Int
+  wrappedDek   String    // base64-wrapped DEK
+  kekVersion   Int       // KEK version
+  algorithm    String    // e.g., 'aes-256-gcm'
+  createdAt    DateTime  @default(now())
+  rotatedAt    DateTime?
+  isActive     Boolean   @default(true)
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, version])
+  @@map("tenant_keys")
+}
+
+model Outbox {
+  id          String   @id @default(cuid())
+  tenantId    String
+  topic       String
+  payload     Json
+  headers     Json?
+  status      String   @default("PENDING") // PENDING, SENT, FAILED
+  createdAt   DateTime @default(now())
+  processedAt DateTime?
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+  @@map("outbox")
+}
+
 model User {
   id                   String                @id @default(cuid())
-  email                String                @unique
-  username             String                @unique
+  tenantId             String
+  email                String
+  username             String
   password             String
   firstName            String?
   lastName             String?
@@ -32,14 +101,19 @@ model User {
   approvedPRs          PurchaseRequisition[] @relation("PRApprover")
   purchaseRequisitions PurchaseRequisition[]
   createdTenders       Tender[]              @relation("TenderCreator")
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, email])
+  @@unique([tenantId, username])
+  @@index([tenantId])
   @@map("users")
 }
 
 model Vendor {
   id                 String           @id @default(cuid())
+  tenantId           String
   name               String
-  registrationNumber String?          @unique
+  registrationNumber String?
   taxId              String?
   contactEmail       String?
   contactPhone       String?
@@ -65,13 +139,17 @@ model Vendor {
   invoices           Invoice[]
   purchaseOrders     POVendor[]
   quotations         Quotation[]
+  tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, registrationNumber])
+  @@index([tenantId])
   @@map("vendors")
 }
 
 model Currency {
   id             String          @id @default(cuid())
-  code           String          @unique @db.VarChar(3)
+  tenantId       String
+  code           String          @db.VarChar(3)
   symbol         String          @db.VarChar(10)
   name           String
   isActive       Boolean         @default(true)
@@ -82,13 +160,17 @@ model Currency {
   invoices       Invoice[]
   purchaseOrders PurchaseOrder[]
   quotations     Quotation[]
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, code])
+  @@index([tenantId])
   @@map("currencies")
 }
 
 model Contract {
   id                   String                @id @default(cuid())
-  contractNumber       String                @unique
+  tenantId             String
+  contractNumber       String
   title                String
   description          String?
   totalAmount          Decimal?              @db.Decimal(15, 2)
@@ -109,11 +191,15 @@ model Contract {
   purchaseOrders       PurchaseOrder[]
   purchaseRequisitions PurchaseRequisition[]
   tenders              Tender[]
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, contractNumber])
+  @@index([tenantId])
   @@map("contracts")
 }
 
 model ContractVendor {
+  tenantId   String
   contractId String
   vendorId   String
   role       VendorRole @default(PRIMARY)
@@ -121,14 +207,17 @@ model ContractVendor {
   createdAt  DateTime   @default(now())
   contract   Contract   @relation(fields: [contractId], references: [id], onDelete: Cascade)
   vendor     Vendor     @relation(fields: [vendorId], references: [id])
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@id([contractId, vendorId])
+  @@id([tenantId, contractId, vendorId])
+  @@index([tenantId])
   @@map("contract_vendors")
 }
 
 model PurchaseRequisition {
   id              String          @id @default(cuid())
-  prNumber        String          @unique
+  tenantId        String
+  prNumber        String
   title           String
   description     String?
   items           Json
@@ -149,13 +238,17 @@ model PurchaseRequisition {
   approver        User?           @relation("PRApprover", fields: [approvedById], references: [id])
   contract        Contract?       @relation(fields: [contractId], references: [id])
   requester       User            @relation(fields: [requesterId], references: [id])
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, prNumber])
+  @@index([tenantId])
   @@map("purchase_requisitions")
 }
 
 model PurchaseOrder {
   id                  String               @id @default(cuid())
-  poNumber            String               @unique
+  tenantId            String
+  poNumber            String
   title               String
   description         String?
   amount              Decimal              @db.Decimal(15, 2)
@@ -185,11 +278,15 @@ model PurchaseOrder {
   creator             User                 @relation("POCreator", fields: [createdById], references: [id])
   currency            Currency?            @relation(fields: [currencyId], references: [id])
   purchaseRequisition PurchaseRequisition? @relation(fields: [prId], references: [id])
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, poNumber])
+  @@index([tenantId])
   @@map("purchase_orders")
 }
 
 model POVendor {
+  tenantId       String
   poId           String
   vendorId       String
   role           VendorRole    @default(PRIMARY)
@@ -198,14 +295,17 @@ model POVendor {
   createdAt      DateTime      @default(now())
   purchaseOrder  PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
   vendor         Vendor        @relation(fields: [vendorId], references: [id])
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@id([poId, vendorId])
+  @@id([tenantId, poId, vendorId])
+  @@index([tenantId])
   @@map("po_vendors")
 }
 
 model Tender {
   id               String       @id @default(cuid())
-  tenderNumber     String       @unique
+  tenantId         String
+  tenderNumber     String
   title            String
   description      String
   requirements     Json
@@ -229,12 +329,16 @@ model Tender {
   quotations       Quotation[]
   contract         Contract?    @relation(fields: [contractId], references: [id])
   creator          User         @relation("TenderCreator", fields: [creatorId], references: [id])
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, tenderNumber])
+  @@index([tenantId])
   @@map("tenders")
 }
 
 model Bid {
   id                String     @id @default(cuid())
+  tenantId          String
   tenderId          String
   vendorId          String
   technicalScore    Decimal?   @db.Decimal(5, 2)
@@ -244,6 +348,7 @@ model Bid {
   status            BidStatus  @default(DRAFT)
   submittedAt       DateTime?
   encryptedData     String?
+  keyVersion        Int?
   technicalProposal Json?
   financialProposal Json?
   compliance        Json?
@@ -256,14 +361,17 @@ model Bid {
   tender            Tender     @relation(fields: [tenderId], references: [id], onDelete: Cascade)
   vendor            Vendor     @relation(fields: [vendorId], references: [id])
   documents         Document[]
+  tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([tenderId, vendorId])
+  @@unique([tenantId, tenderId, vendorId])
+  @@index([tenantId])
   @@map("bids")
 }
 
 model Quotation {
   id              String          @id @default(cuid())
-  quotationNumber String          @unique
+  tenantId        String
+  quotationNumber String
   tenderId        String?
   vendorId        String
   amount          Decimal         @db.Decimal(15, 2)
@@ -281,13 +389,17 @@ model Quotation {
   currency        Currency?       @relation(fields: [currencyId], references: [id])
   tender          Tender?         @relation(fields: [tenderId], references: [id])
   vendor          Vendor          @relation(fields: [vendorId], references: [id])
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, quotationNumber])
+  @@index([tenantId])
   @@map("quotations")
 }
 
 model GoodsReceipt {
   id              String             @id @default(cuid())
-  receiptNumber   String             @unique
+  tenantId        String
+  receiptNumber   String
   poId            String
   receivedDate    DateTime           @default(now())
   receivedItems   Json
@@ -301,13 +413,17 @@ model GoodsReceipt {
   deletedAt       DateTime?
   documents       Document[]
   purchaseOrder   PurchaseOrder      @relation(fields: [poId], references: [id], onDelete: Cascade)
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, receiptNumber])
+  @@index([tenantId])
   @@map("goods_receipts")
 }
 
 model Invoice {
   id            String         @id @default(cuid())
-  invoiceNumber String         @unique
+  tenantId      String
+  invoiceNumber String
   poId          String?
   vendorId      String
   amount        Decimal        @db.Decimal(15, 2)
@@ -327,13 +443,17 @@ model Invoice {
   purchaseOrder PurchaseOrder? @relation(fields: [poId], references: [id])
   vendor        Vendor         @relation(fields: [vendorId], references: [id])
   payments      Payment[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId])
   @@map("invoices")
 }
 
 model Payment {
   id            String        @id @default(cuid())
-  paymentNumber String        @unique
+  tenantId      String
+  paymentNumber String
   invoiceId     String?
   poId          String
   amount        Decimal       @db.Decimal(15, 2)
@@ -356,12 +476,16 @@ model Payment {
   invoice       Invoice?      @relation(fields: [invoiceId], references: [id])
   purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
   receiver      User?         @relation("PaymentReceiver", fields: [receivedById], references: [id])
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, paymentNumber])
+  @@index([tenantId])
   @@map("payments")
 }
 
 model Document {
   id                  String               @id @default(cuid())
+  tenantId            String
   fileName            String
   originalName        String
   filePath            String
@@ -401,12 +525,15 @@ model Document {
   goodsReceipt        GoodsReceipt?        @relation(fields: [receiptId], references: [id])
   tender              Tender?              @relation(fields: [tenderId], references: [id])
   vendor              Vendor?              @relation(fields: [vendorId], references: [id])
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@map("documents")
 }
 
 model AuditLog {
   id         String      @id @default(cuid())
+  tenantId   String
   userId     String?
   action     AuditAction
   targetType String?
@@ -418,7 +545,9 @@ model AuditLog {
   sessionId  String?
   timestamp  DateTime    @default(now())
   user       User?       @relation("AuditUser", fields: [userId], references: [id])
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@index([userId])
   @@index([targetType, targetId])
   @@index([timestamp])
@@ -427,41 +556,54 @@ model AuditLog {
 
 model SystemConfig {
   id          String   @id @default(cuid())
-  key         String   @unique
+  tenantId    String
+  key         String
   value       Json
   description String?
   category    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, key])
+  @@index([tenantId])
   @@map("system_config")
 }
 
 model RoleConfig {
   id          String   @id @default(cuid())
-  roleName    String   @unique
+  tenantId    String
+  roleName    String
   permissions Json
   description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, roleName])
+  @@index([tenantId])
   @@map("role_configs")
 }
 
 model RefreshToken {
   id        String   @id @default(cuid())
-  token     String   @unique
+  tenantId  String
+  token     String
   userId    String
   expiresAt DateTime
   isRevoked Boolean  @default(false)
   createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, token])
+  @@index([tenantId])
   @@map("refresh_tokens")
 }
 
 model Notification {
   id        String    @id @default(cuid())
+  tenantId  String
   userId    String
   title     String
   message   String
@@ -472,13 +614,15 @@ model Notification {
   isRead    Boolean   @default(false)
   readAt    DateTime?
   createdAt DateTime  @default(now())
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@index([userId, isRead])
+  @@index([tenantId, userId, isRead])
   @@map("notifications")
 }
 
 model WorkflowStep {
   id               String    @id @default(cuid())
+  tenantId         String
   workflowType     String
   stepName         String
   stepOrder        Int
@@ -491,8 +635,10 @@ model WorkflowStep {
   isActive         Boolean   @default(true)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([workflowType, stepOrder])
+  @@unique([tenantId, workflowType, stepOrder])
+  @@index([tenantId])
   @@map("workflow_steps")
 }
 
