@@ -4,6 +4,7 @@ services:
     env: node
     buildCommand: npm install && npm run build:prod
     startCommand: npm run start:prod
+    healthCheckPath: /health
     postDeployCommand: npm run prisma:push
     envVars:
       - key: NODE_ENV
