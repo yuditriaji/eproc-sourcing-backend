@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma/prisma.service';
+import { TenantContext } from '../../common/tenant/tenant-context';
 
 export interface CreateVendorDto {
   name: string;
@@ -13,13 +14,20 @@ export interface CreateVendorDto {
 
 @Injectable()
 export class VendorService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantContext: TenantContext,
+  ) {}
 
   async createVendor(dto: CreateVendorDto) {
     // Enforce uniqueness by name+contactEmail within tenant via schema constraints where possible
     try {
+      const tenantId = this.tenantContext.getTenantId();
+      if (!tenantId) throw new BadRequestException('Missing tenant context');
+
       const vendor = await this.prisma.vendor.create({
         data: {
+          tenantId,
           name: dto.name,
           registrationNumber: dto.registrationNumber || null,
           taxId: dto.taxId || null,
@@ -28,7 +36,7 @@ export class VendorService {
           website: dto.website || null,
           address: dto.address || null,
           status: 'ACTIVE' as any,
-        },
+        } as any,
         select: {
           id: true,
           name: true,
