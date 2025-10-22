@@ -14,6 +14,7 @@ model Tenant {
   subdomain     String?  @unique
   residencyTag  String   // e.g., 'eu', 'us', 'apac'
   config        Json?
+  tenantConfig  TenantConfig?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -41,6 +42,10 @@ model Tenant {
   workflowSteps WorkflowStep[]
   tenantKeys    TenantKey[]
   outbox        Outbox[]
+  // Basis relations
+  processConfigs ProcessConfig[]
+  rbacConfigs   RbacConfig[]
+  orgUnits      OrgUnit[]
 
   @@map("tenants")
 }
@@ -112,6 +117,7 @@ model User {
 model Vendor {
   id                 String           @id @default(cuid())
   tenantId           String
+  orgUnitId          String?
   name               String
   registrationNumber String?
   taxId              String?
@@ -140,9 +146,11 @@ model Vendor {
   purchaseOrders     POVendor[]
   quotations         Quotation[]
   tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orgUnit            OrgUnit?         @relation("VendorOrgUnit", fields: [orgUnitId], references: [id])
 
   @@unique([tenantId, registrationNumber])
   @@index([tenantId])
+  @@index([tenantId, orgUnitId])
   @@map("vendors")
 }
 
@@ -217,6 +225,8 @@ model ContractVendor {
 model PurchaseRequisition {
   id              String          @id @default(cuid())
   tenantId        String
+  processConfigId String?
+  orgUnitId       String?
   prNumber        String
   title           String
   description     String?
@@ -239,15 +249,21 @@ model PurchaseRequisition {
   contract        Contract?       @relation(fields: [contractId], references: [id])
   requester       User            @relation(fields: [requesterId], references: [id])
   tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  processConfig   ProcessConfig?  @relation("PRProcessConfig", fields: [processConfigId], references: [id])
+  orgUnit         OrgUnit?        @relation("PROrgUnit", fields: [orgUnitId], references: [id])
 
   @@unique([tenantId, prNumber])
   @@index([tenantId])
+  @@index([tenantId, processConfigId])
+  @@index([tenantId, orgUnitId])
   @@map("purchase_requisitions")
 }
 
 model PurchaseOrder {
   id                  String               @id @default(cuid())
   tenantId            String
+  processConfigId     String?
+  orgUnitId           String?
   poNumber            String
   title               String
   description         String?
@@ -279,9 +295,13 @@ model PurchaseOrder {
   currency            Currency?            @relation(fields: [currencyId], references: [id])
   purchaseRequisition PurchaseRequisition? @relation(fields: [prId], references: [id])
   tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  processConfig       ProcessConfig?       @relation("POProcessConfig", fields: [processConfigId], references: [id])
+  orgUnit             OrgUnit?             @relation("POOrgUnit", fields: [orgUnitId], references: [id])
 
   @@unique([tenantId, poNumber])
   @@index([tenantId])
+  @@index([tenantId, processConfigId])
+  @@index([tenantId, orgUnitId])
   @@map("purchase_orders")
 }
 
@@ -305,6 +325,8 @@ model POVendor {
 model Tender {
   id               String       @id @default(cuid())
   tenantId         String
+  processConfigId  String?
+  orgUnitId        String?
   tenderNumber     String
   title            String
   description      String
@@ -330,9 +352,13 @@ model Tender {
   contract         Contract?    @relation(fields: [contractId], references: [id])
   creator          User         @relation("TenderCreator", fields: [creatorId], references: [id])
   tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  processConfig    ProcessConfig? @relation("TenderProcessConfig", fields: [processConfigId], references: [id])
+  orgUnit          OrgUnit?     @relation("TenderOrgUnit", fields: [orgUnitId], references: [id])
 
   @@unique([tenantId, tenderNumber])
   @@index([tenantId])
+  @@index([tenantId, processConfigId])
+  @@index([tenantId, orgUnitId])
   @@map("tenders")
 }
 
@@ -568,6 +594,92 @@ model SystemConfig {
   @@unique([tenantId, key])
   @@index([tenantId])
   @@map("system_config")
+}
+
+// Config as foundational basis
+model TenantConfig {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  orgStructure    Json?    // e.g., { levels: 5, ccs: [{ code: "CC1", pgs: 2 }, ...] }
+  businessVariants Json?   // e.g., array of process variants
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("tenant_config")
+}
+
+enum ProcessType {
+  TENDER
+  PROCUREMENT
+  INVOICE
+  PAYMENT
+}
+
+model ProcessConfig {
+  id         String      @id @default(cuid())
+  tenantId   String
+  name       String
+  processType ProcessType
+  steps      Json        // [{ stepName, requiredRole, conditions... }]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenders    Tender[]    @relation("TenderProcessConfig")
+  purchaseOrders PurchaseOrder[] @relation("POProcessConfig")
+  purchaseRequisitions PurchaseRequisition[] @relation("PRProcessConfig")
+  rbacConfigs RbacConfig[] @relation("RbacToProcessConfig")
+
+  @@index([tenantId, processType])
+  @@map("process_config")
+}
+
+model RbacConfig {
+  id              String   @id @default(cuid())
+  tenantId        String
+  roleName        String
+  orgLevel        Int?
+  permissions     Json
+  processConfigId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  processConfig   ProcessConfig? @relation("RbacToProcessConfig", fields: [processConfigId], references: [id])
+
+  @@unique([tenantId, roleName, processConfigId])
+  @@index([tenantId])
+  @@map("rbac_config")
+}
+
+enum OrgUnitType {
+  COMPANY_CODE
+  PURCHASING_GROUP
+}
+
+model OrgUnit {
+  id          String      @id @default(cuid())
+  tenantId    String
+  parentId    String?
+  level       Int
+  name        String
+  type        OrgUnitType
+  companyCode String?
+  pgCode      String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent      OrgUnit?    @relation("OrgUnitHierarchy", fields: [parentId], references: [id])
+  children    OrgUnit[]   @relation("OrgUnitHierarchy")
+  vendors     Vendor[]    @relation("VendorOrgUnit")
+  tenders     Tender[]    @relation("TenderOrgUnit")
+  purchaseOrders PurchaseOrder[] @relation("POOrgUnit")
+  purchaseRequisitions PurchaseRequisition[] @relation("PROrgUnit")
+
+  @@unique([tenantId, companyCode])
+  @@unique([tenantId, pgCode])
+  @@index([tenantId, type])
+  @@map("org_units")
 }
 
 model RoleConfig {

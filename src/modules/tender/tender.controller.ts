@@ -32,6 +32,14 @@ export class CreateTenderDto implements ICreateTenderDto {
   @IsString()
   title: string;
 
+  @IsOptional()
+  @IsString()
+  processConfigId?: string;
+
+  @IsOptional()
+  @IsString()
+  orgUnitId?: string;
+
   @IsString()
   description: string;
 

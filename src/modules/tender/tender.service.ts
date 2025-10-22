@@ -70,6 +70,8 @@ export class TenderService {
         category: tenderData.category,
         department: tenderData.department,
         creatorId: userId,
+        processConfigId: (createTenderDto as any).processConfigId,
+        orgUnitId: (createTenderDto as any).orgUnitId,
         tenderNumber: `TDR-${Date.now()}`, // Temporary number generation
       } as any),
       include: {

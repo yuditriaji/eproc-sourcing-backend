@@ -48,6 +48,10 @@ import { AuditService } from './modules/audit/audit.service';
 // Events Module
 import { EventService } from './modules/events/event.service';
 
+// Config Basis Module
+import { ConfigControllerBasis } from './modules/config/config.controller';
+import { ConfigServiceBasis } from './modules/config/config.service';
+
 // Guards
 import { RolesGuard } from './common/guards/roles.guard';
 import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
@@ -129,6 +133,7 @@ const mongooseImports = process.env.MONGODB_URL
     BidController,
     ContractController,
     WorkflowController,
+    ConfigControllerBasis,
   ],
   providers: [
     // Database Services
@@ -149,6 +154,7 @@ const mongooseImports = process.env.MONGODB_URL
     WorkflowService,
     AuditService,
     EventService,
+    ConfigServiceBasis,
 
     // Crypto / KMS
     TenantKmsService,
