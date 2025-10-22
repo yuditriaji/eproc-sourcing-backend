@@ -38,6 +38,9 @@ import { TenantInterceptor } from './common/tenant/tenant.interceptor';
 import { DbTenantSessionInterceptor } from './common/tenant/db-tenant-session.interceptor';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 
+// Crypto / KMS
+import { TenantKmsService } from './common/crypto/tenant-kms.service';
+
 // Tenant Provisioning
 import { TenantService } from './modules/tenant/tenant.service';
 import { TenantController as TenantsController } from './modules/tenant/tenant.controller';
@@ -118,6 +121,9 @@ import { TenantController as TenantsController } from './modules/tenant/tenant.c
     BidService,
     AuditService,
     EventService,
+
+    // Crypto / KMS
+    TenantKmsService,
 
     // Tenant Provisioning
     TenantService,
