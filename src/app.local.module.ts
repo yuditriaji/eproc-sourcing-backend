@@ -18,6 +18,10 @@ import { AbilityFactory } from './modules/auth/abilities/ability.factory';
 import { TenderController } from './modules/tender/tender.controller';
 import { TenderService } from './modules/tender/tender.service';
 
+// Vendor Module
+import { VendorController } from './modules/vendor/vendor.controller';
+import { VendorService } from './modules/vendor/vendor.service';
+
 // Bid Module (simplified without MongoDB)
 import { BidService } from './modules/bid/bid.service';
 import { BidController } from './modules/bid/bid.controller';
@@ -94,6 +98,7 @@ import { TenantController as TenantsController } from './modules/tenant/tenant.c
     AuthController,
     TenantsController,
     TenderController,
+    VendorController,
     BidController,
   ],
   providers: [
@@ -118,6 +123,7 @@ import { TenantController as TenantsController } from './modules/tenant/tenant.c
     
     // Core Services
     TenderService,
+    VendorService,
     BidService,
     AuditService,
     EventService,

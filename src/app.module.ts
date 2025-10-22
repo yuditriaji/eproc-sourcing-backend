@@ -20,6 +20,10 @@ import { AbilityFactory } from './modules/auth/abilities/ability.factory';
 import { TenderController } from './modules/tender/tender.controller';
 import { TenderService } from './modules/tender/tender.service';
 
+// Vendor Module
+import { VendorController } from './modules/vendor/vendor.controller';
+import { VendorService } from './modules/vendor/vendor.service';
+
 // Bid Module
 import { BidController } from './modules/bid/bid.controller';
 import { BidService } from './modules/bid/bid.service';
@@ -121,6 +125,7 @@ const mongooseImports = process.env.MONGODB_URL
     AuthController,
     TenantsController,
     TenderController,
+    VendorController,
     BidController,
     ContractController,
     WorkflowController,
@@ -136,6 +141,7 @@ const mongooseImports = process.env.MONGODB_URL
 
     // Core Services
     TenderService,
+    VendorService,
     BidService,
     ContractService,
     PurchaseRequisitionService,
