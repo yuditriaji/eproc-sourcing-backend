@@ -41,20 +41,29 @@ export class AuditService {
 
   async log(data: AuditLogData): Promise<void> {
     try {
-      // Store in database
-      await this.prismaService.auditLog.create({
-        data: {
-          tenantId: this.tenantContext.getTenantId()!,
-          userId: data.userId,
-          action: data.action as any, // Cast to handle enum conversion
-          targetType: data.targetType,
-          targetId: data.targetId,
-          oldValues: data.oldValues,
-          newValues: data.newValues,
-          ipAddress: data.ipAddress,
-          userAgent: data.userAgent,
-        },
-      });
+      const tenantId = this.tenantContext.getTenantId();
+
+      if (!tenantId) {
+        // Avoid DB error if tenant context is missing (e.g., early auth flows)
+        this.logger.warn('Skipping DB audit due to missing tenantId', {
+          auditData: data,
+        });
+      } else {
+        // Store in database
+        await this.prismaService.auditLog.create({
+          data: {
+            tenantId,
+            userId: data.userId,
+            action: data.action as any, // Cast to handle enum conversion
+            targetType: data.targetType,
+            targetId: data.targetId,
+            oldValues: data.oldValues,
+            newValues: data.newValues,
+            ipAddress: data.ipAddress,
+            userAgent: data.userAgent,
+          },
+        });
+      }
 
       // Also log to file system
       this.logger.info('Audit log created', {
