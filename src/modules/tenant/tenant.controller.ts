@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { TenantService } from './tenant.service';
 
 class AdminDto {
@@ -12,6 +13,7 @@ class AdminDto {
   username?: string;
 
   @IsString()
+  @MinLength(8)
   password: string;
 
   @IsOptional()
@@ -35,6 +37,8 @@ class ProvisionTenantDto {
   @IsOptional()
   config?: any;
 
+  @ValidateNested()
+  @Type(() => AdminDto)
   admin: AdminDto;
 }
 
