@@ -19,6 +19,7 @@ import { AuthService, LoginDto as ILoginDto, RegisterDto as IRegisterDto } from 
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { TenantContext } from '../../common/tenant/tenant-context';
+import { TenantService } from '../tenant/tenant.service';
 
 export class LoginDto implements ILoginDto {
   @IsEmail()
@@ -65,6 +66,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly tenantContext: TenantContext,
+    private readonly tenantService: TenantService,
   ) {}
 
   @Post('login')
@@ -99,7 +101,11 @@ export class AuthController {
     const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
     const userAgent = req.get('User-Agent') || 'unknown';
 
-    const tenantId = this.tenantContext.getTenantId();
+    let tenantId = this.tenantContext.getTenantId();
+    if (!tenantId) {
+      const slug = (req.params as any)?.tenant as string | undefined;
+      tenantId = await this.tenantService.resolveTenantId(slug);
+    }
     const result = await this.authService.login(loginDto, ipAddress, userAgent, tenantId);
 
     // Set refresh token as httpOnly cookie
@@ -137,7 +143,11 @@ export class AuthController {
     const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
     const userAgent = req.get('User-Agent') || 'unknown';
 
-    const tenantId = this.tenantContext.getTenantId();
+    let tenantId = this.tenantContext.getTenantId();
+    if (!tenantId) {
+      const slug = (req.params as any)?.tenant as string | undefined;
+      tenantId = await this.tenantService.resolveTenantId(slug);
+    }
     const result = await this.authService.register(registerDto, ipAddress, userAgent, tenantId);
 
     // Set refresh token as httpOnly cookie for verified users

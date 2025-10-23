@@ -1,10 +1,30 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class TenantService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async resolveTenantId(slugOrId?: string): Promise<string | undefined> {
+    if (!slugOrId) return undefined;
+    const tenant = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [
+          { subdomain: slugOrId },
+          { id: slugOrId },
+        ],
+      },
+      select: { id: true },
+    });
+    return tenant?.id;
+  }
+
+  async getTenantIdOrThrow(slugOrId?: string): Promise<string> {
+    const id = await this.resolveTenantId(slugOrId);
+    if (!id) throw new NotFoundException('Tenant not found');
+    return id;
+  }
 
   async provisionTenant(input: {
     name: string;
