@@ -35,32 +35,46 @@ export class ConfigServiceBasis {
   async bulkCreateOrgUnits(tenantId: string, json: any) {
     if (!tenantId) throw new BadRequestException('Missing tenant');
     const units: any[] = [];
-    const now = new Date();
 
     if (json?.ccs && Array.isArray(json.ccs)) {
       for (const cc of json.ccs) {
-        const parent = await this.prisma.orgUnit.create({
-          data: {
+        // Upsert parent company code to avoid duplicates
+        const parent = await this.prisma.orgUnit.upsert({
+          where: { tenantId_companyCode: { tenantId, companyCode: cc.code } as any },
+          update: {
+            name: cc.name || cc.code,
+            type: 'COMPANY_CODE' as any,
+            level: 1,
+          },
+          create: {
             tenantId,
             level: 1,
             name: cc.name || cc.code,
-            type: 'COMPANY_CODE',
+            type: 'COMPANY_CODE' as any,
             companyCode: cc.code,
-          } as any,
+          },
         });
         units.push(parent);
 
         const pgs = cc.pgs || 0;
         for (let i = 1; i <= pgs; i++) {
-          const child = await this.prisma.orgUnit.create({
-            data: {
+          const code = `${cc.code}-PG${i}`; // ensure tenant-wide uniqueness for pgCode
+          const child = await this.prisma.orgUnit.upsert({
+            where: { tenantId_pgCode: { tenantId, pgCode: code } as any },
+            update: {
+              parentId: parent.id,
+              name: code,
+              type: 'PURCHASING_GROUP' as any,
+              level: 2,
+            },
+            create: {
               tenantId,
               parentId: parent.id,
               level: 2,
-              name: `${cc.code}-PG${i}`,
-              type: 'PURCHASING_GROUP',
-              pgCode: `PG${i}`,
-            } as any,
+              name: code,
+              type: 'PURCHASING_GROUP' as any,
+              pgCode: code,
+            },
           });
           units.push(child);
         }
