@@ -65,17 +65,28 @@ export class VendorService {
       const plantId = dto.plantId;
       const companyCodeId = dto.companyCodeId;
       if (porgId && (plantId || companyCodeId)) {
-        const assignment = await this.prisma.purchasingOrgAssignment.findFirst({
+        // Check if purchasing org is assigned to company code
+        const companyAssignment = companyCodeId ? await this.prisma.purchasingOrgAssignment.findFirst({
           where: {
             purchasingOrgId: porgId,
-            ...(plantId ? { plantId } : {}),
-            ...(companyCodeId ? { companyCodeId } : {}),
+            companyCodeId: companyCodeId,
           },
-        });
-        if (!assignment)
+        }) : null;
+        
+        // Check if purchasing org is assigned to plant
+        const plantAssignment = plantId ? await this.prisma.purchasingOrgAssignment.findFirst({
+          where: {
+            purchasingOrgId: porgId,
+            plantId: plantId,
+          },
+        }) : null;
+        
+        // At least one assignment must exist
+        if (!companyAssignment && !plantAssignment) {
           throw new BadRequestException(
             "Purchasing org is not assigned to the provided plant/company code",
           );
+        }
       }
 
       const vendor = await this.prisma.vendor.create({
