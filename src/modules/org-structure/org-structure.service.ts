@@ -27,8 +27,8 @@ export class OrgStructureService {
       orderBy: { code: "asc" },
     });
   }
-  createCompanyCode(dto: { code: string; name: string; description?: string }) {
-    const tenantId = this.tenantContext.getTenantId();
+  createCompanyCode(dto: { code: string; name: string; description?: string }, tenantIdOverride?: string) {
+    const tenantId = tenantIdOverride ?? this.tenantContext.getTenantId();
     if (!tenantId) throw new BadRequestException("Missing tenant context");
     return this.prisma.companyCode.create({
       data: {
@@ -64,13 +64,11 @@ export class OrgStructureService {
       orderBy: { code: "asc" },
     });
   }
-  async createPlant(dto: {
-    companyCodeId: string;
-    code: string;
-    name: string;
-    description?: string;
-  }) {
-    const tenantId = this.tenantContext.getTenantId();
+  async createPlant(
+    dto: { companyCodeId: string; code: string; name: string; description?: string },
+    tenantIdOverride?: string,
+  ) {
+    const tenantId = tenantIdOverride ?? this.tenantContext.getTenantId();
     if (!tenantId) throw new BadRequestException("Missing tenant context");
     const cc = await this.prisma.companyCode.findFirst({
       where: { id: dto.companyCodeId },
@@ -108,12 +106,11 @@ export class OrgStructureService {
       orderBy: { code: "asc" },
     });
   }
-  async createStorageLocation(dto: {
-    plantId: string;
-    code: string;
-    name: string;
-  }) {
-    const tenantId = this.tenantContext.getTenantId();
+  async createStorageLocation(
+    dto: { plantId: string; code: string; name: string },
+    tenantIdOverride?: string,
+  ) {
+    const tenantId = tenantIdOverride ?? this.tenantContext.getTenantId();
     if (!tenantId) throw new BadRequestException("Missing tenant context");
     const plant = await this.prisma.plant.findFirst({
       where: { id: dto.plantId },
@@ -149,8 +146,8 @@ export class OrgStructureService {
       orderBy: { code: "asc" },
     });
   }
-  createPurchasingOrg(dto: { code: string; name: string }) {
-    const tenantId = this.tenantContext.getTenantId();
+  createPurchasingOrg(dto: { code: string; name: string }, tenantIdOverride?: string) {
+    const tenantId = tenantIdOverride ?? this.tenantContext.getTenantId();
     if (!tenantId) throw new BadRequestException("Missing tenant context");
     return this.prisma.purchasingOrg.create({
       data: { tenantId, code: dto.code, name: dto.name } as any,
@@ -175,12 +172,11 @@ export class OrgStructureService {
       orderBy: { code: "asc" },
     });
   }
-  async createPurchasingGroup(dto: {
-    purchasingOrgId: string;
-    code: string;
-    name: string;
-  }) {
-    const tenantId = this.tenantContext.getTenantId();
+  async createPurchasingGroup(
+    dto: { purchasingOrgId: string; code: string; name: string },
+    tenantIdOverride?: string,
+  ) {
+    const tenantId = tenantIdOverride ?? this.tenantContext.getTenantId();
     if (!tenantId) throw new BadRequestException("Missing tenant context");
     const porg = await this.prisma.purchasingOrg.findFirst({
       where: { id: dto.purchasingOrgId },
@@ -215,12 +211,11 @@ export class OrgStructureService {
       orderBy: { createdAt: "desc" },
     });
   }
-  async createAssignment(dto: {
-    purchasingOrgId: string;
-    companyCodeId?: string;
-    plantId?: string;
-  }) {
-    const tenantId = this.tenantContext.getTenantId();
+  async createAssignment(
+    dto: { purchasingOrgId: string; companyCodeId?: string; plantId?: string },
+    tenantIdOverride?: string,
+  ) {
+    const tenantId = tenantIdOverride ?? this.tenantContext.getTenantId();
     if (!tenantId) throw new BadRequestException("Missing tenant context");
     if (!!dto.companyCodeId === !!dto.plantId)
       throw new BadRequestException("Provide either companyCodeId or plantId");

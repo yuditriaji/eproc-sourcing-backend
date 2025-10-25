@@ -8,6 +8,7 @@ import {
   Put,
   Query,
   UseGuards,
+  Req,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
@@ -80,8 +81,8 @@ export class OrgStructureController {
   listCC(@Query("q") q?: string) {
     return this.svc.listCompanyCodes(q);
   }
-  @Post("company-codes") createCC(@Body() dto: CreateCompanyCodeDto) {
-    return this.svc.createCompanyCode(dto);
+  @Post("company-codes") createCC(@Body() dto: CreateCompanyCodeDto, @Req() req: any) {
+    return this.svc.createCompanyCode(dto, req?.tenantId || req?.user?.tenantId);
   }
   @Put("company-codes/:id") updateCC(
     @Param("id") id: string,
@@ -97,8 +98,8 @@ export class OrgStructureController {
   @Get("plants") listPlants(@Query("companyCodeId") companyCodeId?: string) {
     return this.svc.listPlants(companyCodeId);
   }
-  @Post("plants") createPlant(@Body() dto: CreatePlantDto) {
-    return this.svc.createPlant(dto);
+  @Post("plants") createPlant(@Body() dto: CreatePlantDto, @Req() req: any) {
+    return this.svc.createPlant(dto, req?.tenantId || req?.user?.tenantId);
   }
   @Put("plants/:id") updatePlant(
     @Param("id") id: string,
@@ -114,8 +115,8 @@ export class OrgStructureController {
   @Get("storage-locations") listSLocs(@Query("plantId") plantId?: string) {
     return this.svc.listStorageLocations(plantId);
   }
-  @Post("storage-locations") createSLoc(@Body() dto: CreateSLocDto) {
-    return this.svc.createStorageLocation(dto);
+  @Post("storage-locations") createSLoc(@Body() dto: CreateSLocDto, @Req() req: any) {
+    return this.svc.createStorageLocation(dto, req?.tenantId || req?.user?.tenantId);
   }
   @Put("storage-locations/:id") updateSLoc(
     @Param("id") id: string,
@@ -131,8 +132,8 @@ export class OrgStructureController {
   @Get("purchasing-orgs") listPOrgs(@Query("q") q?: string) {
     return this.svc.listPurchasingOrgs(q);
   }
-  @Post("purchasing-orgs") createPOrg(@Body() dto: CreatePOrgDto) {
-    return this.svc.createPurchasingOrg(dto);
+  @Post("purchasing-orgs") createPOrg(@Body() dto: CreatePOrgDto, @Req() req: any) {
+    return this.svc.createPurchasingOrg(dto, req?.tenantId || req?.user?.tenantId);
   }
   @Put("purchasing-orgs/:id") updatePOrg(
     @Param("id") id: string,
@@ -149,8 +150,8 @@ export class OrgStructureController {
   ) {
     return this.svc.listPurchasingGroups(purchasingOrgId);
   }
-  @Post("purchasing-groups") createPGrp(@Body() dto: CreatePGrpDto) {
-    return this.svc.createPurchasingGroup(dto);
+  @Post("purchasing-groups") createPGrp(@Body() dto: CreatePGrpDto, @Req() req: any) {
+    return this.svc.createPurchasingGroup(dto, req?.tenantId || req?.user?.tenantId);
   }
   @Put("purchasing-groups/:id") updatePGrp(
     @Param("id") id: string,
@@ -168,8 +169,8 @@ export class OrgStructureController {
   ) {
     return this.svc.listAssignments(purchasingOrgId);
   }
-  @Post("porg-assignments") createAssignment(@Body() dto: CreateAssignmentDto) {
-    return this.svc.createAssignment(dto);
+  @Post("porg-assignments") createAssignment(@Body() dto: CreateAssignmentDto, @Req() req: any) {
+    return this.svc.createAssignment(dto, req?.tenantId || req?.user?.tenantId);
   }
   @Delete("porg-assignments/:id") deleteAssignment(@Param("id") id: string) {
     return this.svc.deleteAssignment(id);
