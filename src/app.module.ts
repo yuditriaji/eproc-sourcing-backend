@@ -59,6 +59,14 @@ import { ConfigServiceBasis } from "./modules/config/config.service";
 import { OrgStructureController } from "./modules/org-structure/org-structure.controller";
 import { OrgStructureService } from "./modules/org-structure/org-structure.service";
 
+// Currency Module
+import { CurrencyController } from "./modules/currency/currency.controller";
+import { CurrencyService } from "./modules/currency/currency.service";
+
+// Master Data Module
+import { MasterDataController } from "./modules/master-data/master-data.controller";
+import { MasterDataService } from "./modules/master-data/master-data.service";
+
 // Guards
 import { RolesGuard } from "./common/guards/roles.guard";
 import { CaslAbilityGuard } from "./common/guards/casl-ability.guard";
@@ -144,6 +152,8 @@ const mongooseImports = process.env.MONGODB_URL
     WorkflowController,
     ConfigControllerBasis,
     OrgStructureController,
+    CurrencyController,
+    MasterDataController,
   ],
   providers: [
     // Database Services
@@ -166,6 +176,8 @@ const mongooseImports = process.env.MONGODB_URL
     EventService,
     ConfigServiceBasis,
     OrgStructureService,
+    CurrencyService,
+    MasterDataService,
 
     // Crypto / KMS
     TenantKmsService,
@@ -197,6 +209,7 @@ const mongooseImports = process.env.MONGODB_URL
     AuthService,
     AbilityFactory,
     TenderService,
+    VendorService,
     BidService,
     ContractService,
     PurchaseRequisitionService,
@@ -204,6 +217,8 @@ const mongooseImports = process.env.MONGODB_URL
     WorkflowService,
     AuditService,
     EventService,
+    CurrencyService,
+    MasterDataService,
   ],
 })
 export class AppModule implements NestModule {
