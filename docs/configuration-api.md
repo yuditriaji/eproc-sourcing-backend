@@ -265,7 +265,7 @@ Request
   "password": "SecurePassword123!",
   "firstName": "John",
   "lastName": "Doe",
-  "role": "BUYER"
+  "role": "USER"
 }
 ```
 
@@ -282,7 +282,7 @@ curl -sS -X POST \
     "password": "SecurePassword123!",
     "firstName": "John",
     "lastName": "Doe",
-    "role": "BUYER"
+    "role": "USER"
   }'
 ```
 
@@ -296,7 +296,7 @@ Response 201
     "username": "johndoe",
     "firstName": "John",
     "lastName": "Doe",
-    "role": "BUYER",
+    "role": "USER",
     "abilities": [
       {
         "actions": ["create", "read", "update"],
@@ -314,11 +314,11 @@ Response 201
 ```
 
 Notes
-- Available roles: `ADMIN`, `BUYER`, `VENDOR`
-- If no role is specified, defaults to `BUYER`
+- Available roles: `ADMIN`, `USER`, `VENDOR`
+- If no role is specified, defaults to `USER`
 - Each role has predefined abilities:
   - `ADMIN`: Full system access (manage all)
-  - `BUYER`: Create/manage own tenders, score bids
+  - `USER`: Create/manage own tenders, score bids
   - `VENDOR`: View published tenders, submit/manage own bids
 - Password must be at least 8 characters
 - Username must be 3-50 characters and unique within tenant
