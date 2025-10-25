@@ -193,7 +193,8 @@ export class VendorController {
     if (req.user?.role !== "USER") {
       throw new ForbiddenException("Only USER role can create vendor");
     }
-    return this.vendorService.createVendor(dto);
+    const tenantId = req.user?.tenantId;
+    return this.vendorService.createVendor(dto, tenantId);
   }
 
   @Get()

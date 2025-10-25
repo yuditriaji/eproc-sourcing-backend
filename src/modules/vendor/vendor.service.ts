@@ -54,11 +54,11 @@ export class VendorService {
     private readonly tenantContext: TenantContext,
   ) {}
 
-  async createVendor(dto: CreateVendorDto) {
+  async createVendor(dto: CreateVendorDto, tenantId?: string) {
     // Enforce uniqueness by name+contactEmail within tenant via schema constraints where possible
     try {
-      const tenantId = this.tenantContext.getTenantId();
-      if (!tenantId) throw new BadRequestException("Missing tenant context");
+      const resolvedTenantId = tenantId || this.tenantContext.getTenantId();
+      if (!resolvedTenantId) throw new BadRequestException("Missing tenant context");
 
       // Validate purchasing org assignment if provided
       const porgId = dto.purchasingOrgId;
@@ -80,7 +80,7 @@ export class VendorService {
 
       const vendor = await this.prisma.vendor.create({
         data: {
-          tenantId,
+          tenantId: resolvedTenantId,
           name: dto.name,
           companyCodeId: dto.companyCodeId || null,
           plantId: dto.plantId || null,
