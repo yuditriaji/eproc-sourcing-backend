@@ -63,6 +63,35 @@ class CreateVendorDto implements ICreateVendorDto {
 
   @IsOptional()
   address?: any;
+
+  @IsOptional()
+  bankDetails?: any;
+
+  @IsOptional()
+  @IsString()
+  businessType?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1900)
+  @Max(new Date().getFullYear())
+  yearEstablished?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  employeeCount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  annualRevenue?: number;
+
+  @IsOptional()
+  certifications?: any;
+
+  @IsOptional()
+  insuranceInfo?: any;
 }
 
 class UpdateVendorDto implements IUpdateVendorDto {

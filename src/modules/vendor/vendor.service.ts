@@ -16,6 +16,13 @@ export interface CreateVendorDto {
   contactPhone?: string;
   website?: string;
   address?: any;
+  bankDetails?: any;
+  businessType?: string;
+  yearEstablished?: number;
+  employeeCount?: number;
+  annualRevenue?: number;
+  certifications?: any;
+  insuranceInfo?: any;
 }
 
 export interface UpdateVendorDto {
@@ -86,6 +93,13 @@ export class VendorService {
           contactPhone: dto.contactPhone || null,
           website: dto.website || null,
           address: dto.address || null,
+          bankDetails: dto.bankDetails || null,
+          businessType: dto.businessType || null,
+          yearEstablished: dto.yearEstablished || null,
+          employeeCount: dto.employeeCount || null,
+          annualRevenue: dto.annualRevenue || null,
+          certifications: dto.certifications || null,
+          insuranceInfo: dto.insuranceInfo || null,
           status: "ACTIVE" as any,
         } as any,
         select: {
