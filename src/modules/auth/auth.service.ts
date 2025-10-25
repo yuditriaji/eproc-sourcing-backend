@@ -297,6 +297,7 @@ export class AuthService {
         role: true,
         abilities: true,
         isVerified: true,
+        tenantId: true,
       },
     });
 

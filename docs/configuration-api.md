@@ -250,7 +250,81 @@ Troubleshooting: “Missing tenant context” (400)
 - Confirm the tenant exists and you used the right slug (subdomain) or id.
 - Include `Authorization: Bearer <JWT>`; the token’s tenantId must match the `:tenant` in the path.
 
-## 5) Get role configuration (Admin)
+## 5) Create USER account (Admin)
+Allows an ADMIN to create new user accounts with specified roles and abilities.
+
+- Method: POST
+- Path: `/{API_PREFIX}/{tenant}/auth/register`
+- Auth: Bearer (ADMIN role recommended)
+
+Request
+```json path=null start=null
+{
+  "email": "john.doe@acme.com",
+  "username": "johndoe",
+  "password": "SecurePassword123!",
+  "firstName": "John",
+  "lastName": "Doe",
+  "role": "BUYER"
+}
+```
+
+Example curl
+```bash path=null start=null
+curl -sS -X POST \
+  "+BASE_URL+/{API_PREFIX}/acme/auth/register" \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <ADMIN_JWT>' \
+  -b cookies.txt \
+  -d '{
+    "email": "john.doe@acme.com",
+    "username": "johndoe",
+    "password": "SecurePassword123!",
+    "firstName": "John",
+    "lastName": "Doe",
+    "role": "BUYER"
+  }'
+```
+
+Response 201
+```json path=null start=null
+{
+  "accessToken": "<JWT>",
+  "user": {
+    "id": "usr_456",
+    "email": "john.doe@acme.com",
+    "username": "johndoe",
+    "firstName": "John",
+    "lastName": "Doe",
+    "role": "BUYER",
+    "abilities": [
+      {
+        "actions": ["create", "read", "update"],
+        "subjects": ["Tender"],
+        "conditions": { "creatorId": "{{userId}}" }
+      },
+      {
+        "actions": ["read", "score"],
+        "subjects": ["Bid"]
+      }
+    ],
+    "tenantId": "ten_123"
+  }
+}
+```
+
+Notes
+- Available roles: `ADMIN`, `BUYER`, `VENDOR`
+- If no role is specified, defaults to `BUYER`
+- Each role has predefined abilities:
+  - `ADMIN`: Full system access (manage all)
+  - `BUYER`: Create/manage own tenders, score bids
+  - `VENDOR`: View published tenders, submit/manage own bids
+- Password must be at least 8 characters
+- Username must be 3-50 characters and unique within tenant
+- Created users are automatically activated and verified
+
+## 6) Get role configuration (Admin)
 Returns the static role configuration template.
 
 - Method: GET
