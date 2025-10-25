@@ -4,10 +4,14 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma/prisma.service";
+import { TenantContext } from "../../common/tenant/tenant-context";
 
 @Injectable()
 export class OrgStructureService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantContext: TenantContext,
+  ) {}
 
   // Company Code
   listCompanyCodes(q?: string) {
@@ -24,8 +28,11 @@ export class OrgStructureService {
     });
   }
   createCompanyCode(dto: { code: string; name: string; description?: string }) {
+    const tenantId = this.tenantContext.getTenantId();
+    if (!tenantId) throw new BadRequestException("Missing tenant context");
     return this.prisma.companyCode.create({
       data: {
+        tenantId,
         code: dto.code,
         name: dto.name,
         description: dto.description || null,
@@ -63,12 +70,15 @@ export class OrgStructureService {
     name: string;
     description?: string;
   }) {
+    const tenantId = this.tenantContext.getTenantId();
+    if (!tenantId) throw new BadRequestException("Missing tenant context");
     const cc = await this.prisma.companyCode.findFirst({
       where: { id: dto.companyCodeId },
     });
     if (!cc) throw new BadRequestException("Invalid companyCodeId");
     return this.prisma.plant.create({
       data: {
+        tenantId,
         companyCodeId: dto.companyCodeId,
         code: dto.code,
         name: dto.name,
@@ -103,12 +113,14 @@ export class OrgStructureService {
     code: string;
     name: string;
   }) {
+    const tenantId = this.tenantContext.getTenantId();
+    if (!tenantId) throw new BadRequestException("Missing tenant context");
     const plant = await this.prisma.plant.findFirst({
       where: { id: dto.plantId },
     });
     if (!plant) throw new BadRequestException("Invalid plantId");
     return this.prisma.storageLocation.create({
-      data: { plantId: dto.plantId, code: dto.code, name: dto.name } as any,
+      data: { tenantId, plantId: dto.plantId, code: dto.code, name: dto.name } as any,
     });
   }
   async updateStorageLocation(id: string, dto: { name?: string }) {
@@ -138,8 +150,10 @@ export class OrgStructureService {
     });
   }
   createPurchasingOrg(dto: { code: string; name: string }) {
+    const tenantId = this.tenantContext.getTenantId();
+    if (!tenantId) throw new BadRequestException("Missing tenant context");
     return this.prisma.purchasingOrg.create({
-      data: { code: dto.code, name: dto.name } as any,
+      data: { tenantId, code: dto.code, name: dto.name } as any,
     });
   }
   async updatePurchasingOrg(id: string, dto: { name?: string }) {
@@ -166,12 +180,15 @@ export class OrgStructureService {
     code: string;
     name: string;
   }) {
+    const tenantId = this.tenantContext.getTenantId();
+    if (!tenantId) throw new BadRequestException("Missing tenant context");
     const porg = await this.prisma.purchasingOrg.findFirst({
       where: { id: dto.purchasingOrgId },
     });
     if (!porg) throw new BadRequestException("Invalid purchasingOrgId");
     return this.prisma.purchasingGroup.create({
       data: {
+        tenantId,
         purchasingOrgId: dto.purchasingOrgId,
         code: dto.code,
         name: dto.name,
@@ -203,6 +220,8 @@ export class OrgStructureService {
     companyCodeId?: string;
     plantId?: string;
   }) {
+    const tenantId = this.tenantContext.getTenantId();
+    if (!tenantId) throw new BadRequestException("Missing tenant context");
     if (!!dto.companyCodeId === !!dto.plantId)
       throw new BadRequestException("Provide either companyCodeId or plantId");
     if (dto.companyCodeId) {
@@ -219,6 +238,7 @@ export class OrgStructureService {
     }
     return this.prisma.purchasingOrgAssignment.create({
       data: {
+        tenantId,
         purchasingOrgId: dto.purchasingOrgId,
         companyCodeId: dto.companyCodeId || null,
         plantId: dto.plantId || null,
