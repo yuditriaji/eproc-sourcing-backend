@@ -183,9 +183,25 @@ CRUD endpoints for company codes, plants, storage locations, purchasing orgs/gro
 
 - Base path: `/{API_PREFIX}/{tenant}/org`
 - Auth: Bearer
+- Tenant resolution: The `:tenant` path segment must be a valid tenant subdomain or id. Middleware resolves it and injects tenantId; JWT must belong to the same tenant.
 
 Create a Company Code
 - POST `/{API_PREFIX}/{tenant}/org/company-codes`
+
+Example curl
+```bash path=null start=null
+# 1) Login to get a JWT (see section 2)
+ACCESS_TOKEN=<JWT>
+TENANT=acme
+BASE_URL=http://localhost:3000
+curl -sS -X POST \
+  "$BASE_URL/{API_PREFIX}/$TENANT/org/company-codes" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"CC1","name":"Company 1","description":"optional"}'
+```
+
+Request body
 ```json path=null start=null
 { "code": "CC1", "name": "Company 1", "description": "optional" }
 ```
@@ -228,6 +244,11 @@ List endpoints
 Notes
 - Exactly one of companyCodeId or plantId must be provided in porg-assignments.
 - Indexes enforce uniqueness per tenant: (tenantId, code) for masters; (tenantId, purchasingOrgId, code) for groups.
+
+Troubleshooting: “Missing tenant context” (400)
+- Ensure the URL includes `/{tenant}/` (e.g., `/api/v1/acme/org/company-codes`).
+- Confirm the tenant exists and you used the right slug (subdomain) or id.
+- Include `Authorization: Bearer <JWT>`; the token’s tenantId must match the `:tenant` in the path.
 
 ## 5) Get role configuration (Admin)
 Returns the static role configuration template.
