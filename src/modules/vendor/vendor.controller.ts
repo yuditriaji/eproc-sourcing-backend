@@ -258,8 +258,9 @@ export class VendorController {
   })
   @ApiResponse({ status: 200, description: 'Vendor rating updated successfully' })
   @ApiResponse({ status: 404, description: 'Vendor not found' })
-  async updateRating(@Param('id') id: string, @Body() dto: UpdateRatingDto) {
-    return this.vendorService.updateVendorRating(id, dto.rating, dto.onTimeDelivery);
+  async updateRating(@Param('id') id: string, @Body() dto: UpdateRatingDto, @Req() req: any) {
+    const tenantId = req.user?.tenantId;
+    return this.vendorService.updateVendorRating(id, dto.rating, dto.onTimeDelivery, tenantId);
   }
 
   @Delete(':id')

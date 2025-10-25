@@ -300,11 +300,11 @@ export class VendorService {
     }
   }
 
-  async updateVendorRating(id: string, rating: number, onTimeDelivery?: number) {
-    const tenantId = this.tenantContext.getTenantId();
+  async updateVendorRating(id: string, rating: number, onTimeDelivery?: number, tenantId?: string) {
+    const resolvedTenantId = tenantId || this.tenantContext.getTenantId();
 
     const existing = await this.prisma.vendor.findFirst({
-      where: { id, tenantId, deletedAt: null },
+      where: { id, tenantId: resolvedTenantId, deletedAt: null },
     });
 
     if (!existing) {
