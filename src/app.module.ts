@@ -223,6 +223,6 @@ const mongooseImports = process.env.MONGODB_URL
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantMiddleware).forRoutes('*path');
+    consumer.apply(TenantMiddleware).forRoutes('*');
   }
 }
