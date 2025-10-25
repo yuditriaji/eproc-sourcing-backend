@@ -46,6 +46,13 @@ model Tenant {
   processConfigs ProcessConfig[]
   rbacConfigs   RbacConfig[]
   orgUnits      OrgUnit[]
+  // SAP-style enterprise purchasing relations
+  companyCodes  CompanyCode[]
+  plants        Plant[]
+  storageLocations StorageLocation[]
+  purchasingOrgs PurchasingOrg[]
+  purchasingGroups PurchasingGroup[]
+  porgAssignments PurchasingOrgAssignment[]
 
   @@map("tenants")
 }
@@ -118,6 +125,12 @@ model Vendor {
   id                 String           @id @default(cuid())
   tenantId           String
   orgUnitId          String?
+  // SAP-style org refs (transition: all optional initially)
+  companyCodeId      String?
+  plantId            String?
+  storageLocationId  String?
+  purchasingOrgId    String?
+  purchasingGroupId  String?
   name               String
   registrationNumber String?
   taxId              String?
@@ -147,10 +160,21 @@ model Vendor {
   quotations         Quotation[]
   tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orgUnit            OrgUnit?         @relation("VendorOrgUnit", fields: [orgUnitId], references: [id])
+  // Relations to new masters
+  companyCode        CompanyCode?     @relation(fields: [companyCodeId], references: [id])
+  plant              Plant?           @relation(fields: [plantId], references: [id])
+  storageLocation    StorageLocation? @relation(fields: [storageLocationId], references: [id])
+  purchasingOrg      PurchasingOrg?   @relation(fields: [purchasingOrgId], references: [id])
+  purchasingGroup    PurchasingGroup? @relation(fields: [purchasingGroupId], references: [id])
 
   @@unique([tenantId, registrationNumber])
   @@index([tenantId])
   @@index([tenantId, orgUnitId])
+  @@index([tenantId, companyCodeId])
+  @@index([tenantId, plantId])
+  @@index([tenantId, storageLocationId])
+  @@index([tenantId, purchasingOrgId])
+  @@index([tenantId, purchasingGroupId])
   @@map("vendors")
 }
 
@@ -227,6 +251,12 @@ model PurchaseRequisition {
   tenantId        String
   processConfigId String?
   orgUnitId       String?
+  // SAP-style org refs (optional initially)
+  companyCodeId      String?
+  plantId            String?
+  storageLocationId  String?
+  purchasingOrgId    String?
+  purchasingGroupId  String?
   prNumber        String
   title           String
   description     String?
@@ -251,11 +281,22 @@ model PurchaseRequisition {
   tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   processConfig   ProcessConfig?  @relation("PRProcessConfig", fields: [processConfigId], references: [id])
   orgUnit         OrgUnit?        @relation("PROrgUnit", fields: [orgUnitId], references: [id])
+  // Relations to new masters
+  companyCode     CompanyCode?     @relation(fields: [companyCodeId], references: [id])
+  plant           Plant?           @relation(fields: [plantId], references: [id])
+  storageLocation StorageLocation? @relation(fields: [storageLocationId], references: [id])
+  purchasingOrg   PurchasingOrg?   @relation(fields: [purchasingOrgId], references: [id])
+  purchasingGroup PurchasingGroup? @relation(fields: [purchasingGroupId], references: [id])
 
   @@unique([tenantId, prNumber])
   @@index([tenantId])
   @@index([tenantId, processConfigId])
   @@index([tenantId, orgUnitId])
+  @@index([tenantId, companyCodeId])
+  @@index([tenantId, plantId])
+  @@index([tenantId, storageLocationId])
+  @@index([tenantId, purchasingOrgId])
+  @@index([tenantId, purchasingGroupId])
   @@map("purchase_requisitions")
 }
 
@@ -264,6 +305,12 @@ model PurchaseOrder {
   tenantId            String
   processConfigId     String?
   orgUnitId           String?
+  // SAP-style org refs (optional initially, can be enforced later)
+  companyCodeId       String?
+  plantId             String?
+  storageLocationId   String?
+  purchasingOrgId     String?
+  purchasingGroupId   String?
   poNumber            String
   title               String
   description         String?
@@ -297,11 +344,22 @@ model PurchaseOrder {
   tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   processConfig       ProcessConfig?       @relation("POProcessConfig", fields: [processConfigId], references: [id])
   orgUnit             OrgUnit?             @relation("POOrgUnit", fields: [orgUnitId], references: [id])
+  // Relations to new masters
+  companyCode         CompanyCode?         @relation(fields: [companyCodeId], references: [id])
+  plant               Plant?               @relation(fields: [plantId], references: [id])
+  storageLocation     StorageLocation?     @relation(fields: [storageLocationId], references: [id])
+  purchasingOrg       PurchasingOrg?       @relation(fields: [purchasingOrgId], references: [id])
+  purchasingGroup     PurchasingGroup?     @relation(fields: [purchasingGroupId], references: [id])
 
   @@unique([tenantId, poNumber])
   @@index([tenantId])
   @@index([tenantId, processConfigId])
   @@index([tenantId, orgUnitId])
+  @@index([tenantId, companyCodeId])
+  @@index([tenantId, plantId])
+  @@index([tenantId, storageLocationId])
+  @@index([tenantId, purchasingOrgId])
+  @@index([tenantId, purchasingGroupId])
   @@map("purchase_orders")
 }
 
@@ -327,6 +385,12 @@ model Tender {
   tenantId         String
   processConfigId  String?
   orgUnitId        String?
+  // SAP-style org refs (optional initially)
+  companyCodeId      String?
+  plantId            String?
+  storageLocationId  String?
+  purchasingOrgId    String?
+  purchasingGroupId  String?
   tenderNumber     String
   title            String
   description      String
@@ -354,11 +418,22 @@ model Tender {
   tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   processConfig    ProcessConfig? @relation("TenderProcessConfig", fields: [processConfigId], references: [id])
   orgUnit          OrgUnit?     @relation("TenderOrgUnit", fields: [orgUnitId], references: [id])
+  // Relations to new masters
+  companyCode     CompanyCode?     @relation(fields: [companyCodeId], references: [id])
+  plant           Plant?           @relation(fields: [plantId], references: [id])
+  storageLocation StorageLocation? @relation(fields: [storageLocationId], references: [id])
+  purchasingOrg   PurchasingOrg?   @relation(fields: [purchasingOrgId], references: [id])
+  purchasingGroup PurchasingGroup? @relation(fields: [purchasingGroupId], references: [id])
 
   @@unique([tenantId, tenderNumber])
   @@index([tenantId])
   @@index([tenantId, processConfigId])
   @@index([tenantId, orgUnitId])
+  @@index([tenantId, companyCodeId])
+  @@index([tenantId, plantId])
+  @@index([tenantId, storageLocationId])
+  @@index([tenantId, purchasingOrgId])
+  @@index([tenantId, purchasingGroupId])
   @@map("tenders")
 }
 
@@ -680,6 +755,129 @@ model OrgUnit {
   @@unique([tenantId, pgCode])
   @@index([tenantId, type])
   @@map("org_units")
+}
+
+// SAP-style enterprise purchasing structure
+model CompanyCode {
+  id          String   @id @default(cuid())
+  tenantId    String
+  code        String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plants      Plant[]
+  purchasingOrgAssignments PurchasingOrgAssignment[]
+  vendors     Vendor[]
+  purchaseRequisitions PurchaseRequisition[]
+  purchaseOrders PurchaseOrder[]
+  tenders     Tender[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, code])
+  @@map("company_codes")
+}
+
+model Plant {
+  id          String   @id @default(cuid())
+  tenantId    String
+  companyCodeId String
+  code        String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyCode CompanyCode @relation(fields: [companyCodeId], references: [id])
+  storageLocations StorageLocation[]
+  purchasingOrgAssignments PurchasingOrgAssignment[]
+  vendors     Vendor[]
+  purchaseRequisitions PurchaseRequisition[]
+  purchaseOrders PurchaseOrder[]
+  tenders     Tender[]
+
+  @@unique([tenantId, companyCodeId, code])
+  @@index([tenantId, companyCodeId])
+  @@map("plants")
+}
+
+model StorageLocation {
+  id        String   @id @default(cuid())
+  tenantId  String
+  plantId   String
+  code      String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plant     Plant    @relation(fields: [plantId], references: [id])
+  vendors   Vendor[]
+  purchaseRequisitions PurchaseRequisition[]
+  purchaseOrders PurchaseOrder[]
+  tenders   Tender[]
+
+  @@unique([tenantId, plantId, code])
+  @@index([tenantId, plantId])
+  @@map("storage_locations")
+}
+
+model PurchasingOrg {
+  id        String   @id @default(cuid())
+  tenantId  String
+  code      String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  groups    PurchasingGroup[]
+  assignments PurchasingOrgAssignment[]
+  vendors    Vendor[]
+  purchaseRequisitions PurchaseRequisition[]
+  purchaseOrders PurchaseOrder[]
+  tenders    Tender[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, code])
+  @@map("purchasing_orgs")
+}
+
+model PurchasingGroup {
+  id               String   @id @default(cuid())
+  tenantId         String
+  purchasingOrgId  String
+  code             String
+  name             String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  purchasingOrg    PurchasingOrg @relation(fields: [purchasingOrgId], references: [id])
+  vendors          Vendor[]
+  purchaseRequisitions PurchaseRequisition[]
+  purchaseOrders   PurchaseOrder[]
+  tenders          Tender[]
+
+  @@unique([tenantId, purchasingOrgId, code])
+  @@index([tenantId, purchasingOrgId])
+  @@map("purchasing_groups")
+}
+
+model PurchasingOrgAssignment {
+  id              String   @id @default(cuid())
+  tenantId        String
+  purchasingOrgId String
+  companyCodeId   String?
+  plantId         String?
+  createdAt       DateTime @default(now())
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  purchasingOrg   PurchasingOrg @relation(fields: [purchasingOrgId], references: [id])
+  companyCode     CompanyCode?  @relation(fields: [companyCodeId], references: [id])
+  plant           Plant?        @relation(fields: [plantId], references: [id])
+
+  @@index([tenantId, purchasingOrgId])
+  @@index([tenantId, companyCodeId])
+  @@index([tenantId, plantId])
+  @@map("porg_assignments")
 }
 
 model RoleConfig {

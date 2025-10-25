@@ -178,59 +178,56 @@ Response 200
 }
 ```
 
-## 4) Bulk create Org Units (Company Codes and Purchasing Groups)
-Create hierarchical org units from a compact JSON.
+## 4) Org Structure (SAP-style) APIs
+CRUD endpoints for company codes, plants, storage locations, purchasing orgs/groups, and assignments.
 
-- Method: POST
-- Path: `/{API_PREFIX}/{tenant}/config/org-units/bulk`
-- Auth: Bearer (ADMIN recommended)
+- Base path: `/{API_PREFIX}/{tenant}/org`
+- Auth: Bearer
 
-Request (ccs = company codes; each with pgs count)
+Create a Company Code
+- POST `/{API_PREFIX}/{tenant}/org/company-codes`
 ```json path=null start=null
-{
-  "ccs": [
-    { "code": "CC1", "name": "Company 1", "pgs": 2 },
-    { "code": "CC2", "pgs": 3 }
-  ]
-}
+{ "code": "CC1", "name": "Company 1", "description": "optional" }
 ```
 
-Example curl
-```bash path=null start=null
-curl -sS -X POST \
-  "+BASE_URL+/{API_PREFIX}/acme/config/org-units/bulk" \
-  -H 'Content-Type: application/json' \
-  -H 'Authorization: Bearer <JWT>' \
-  -d '{"ccs":[{"code":"CC1","pgs":2},{"code":"CC2","pgs":1}]}'
-```
-
-Response 200
+Create a Plant
+- POST `/{API_PREFIX}/{tenant}/org/plants`
 ```json path=null start=null
-{
-  "created": 3,
-  "units": [
-    {
-      "id": "ou_parent_cc1",
-      "tenantId": "ten_123",
-      "level": 1,
-      "name": "CC1",
-      "type": "COMPANY_CODE",
-      "companyCode": "CC1",
-      "createdAt": "2025-01-01T00:00:00.000Z",
-      "updatedAt": "2025-01-01T00:00:00.000Z"
-    },
-    {
-      "id": "ou_child_cc1_pg1",
-      "tenantId": "ten_123",
-      "parentId": "ou_parent_cc1",
-      "level": 2,
-      "name": "CC1-PG1",
-      "type": "PURCHASING_GROUP",
-      "pgCode": "PG1"
-    }
-  ]
-}
+{ "companyCodeId": "cc_123", "code": "P1", "name": "Plant 1" }
 ```
+
+Create a Storage Location
+- POST `/{API_PREFIX}/{tenant}/org/storage-locations`
+```json path=null start=null
+{ "plantId": "plant_123", "code": "S001", "name": "Main WH" }
+```
+
+Create a Purchasing Org and Group
+- POST `/{API_PREFIX}/{tenant}/org/purchasing-orgs`
+```json path=null start=null
+{ "code": "PO1", "name": "Procurement Org 1" }
+```
+- POST `/{API_PREFIX}/{tenant}/org/purchasing-groups`
+```json path=null start=null
+{ "purchasingOrgId": "porg_123", "code": "PG1", "name": "Group 1" }
+```
+
+Assign Purchasing Org to Company Code or Plant
+- POST `/{API_PREFIX}/{tenant}/org/porg-assignments`
+```json path=null start=null
+{ "purchasingOrgId": "porg_123", "companyCodeId": "cc_123" }
+```
+OR
+```json path=null start=null
+{ "purchasingOrgId": "porg_123", "plantId": "plant_123" }
+```
+
+List endpoints
+- GET `/{API_PREFIX}/{tenant}/org/company-codes|plants|storage-locations|purchasing-orgs|purchasing-groups|porg-assignments`
+
+Notes
+- Exactly one of companyCodeId or plantId must be provided in porg-assignments.
+- Indexes enforce uniqueness per tenant: (tenantId, code) for masters; (tenantId, purchasingOrgId, code) for groups.
 
 ## 5) Get role configuration (Admin)
 Returns the static role configuration template.

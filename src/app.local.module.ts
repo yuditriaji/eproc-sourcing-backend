@@ -1,60 +1,64 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { Module, NestModule, MiddlewareConsumer } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { JwtModule } from "@nestjs/jwt";
+import { PassportModule } from "@nestjs/passport";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 
 // Database
-import { PrismaService } from './database/prisma/prisma.service';
+import { PrismaService } from "./database/prisma/prisma.service";
 
 // Auth Module
-import { AuthController } from './modules/auth/auth.controller';
-import { AuthService } from './modules/auth/auth.service';
-import { JwtStrategy } from './modules/auth/strategies/jwt.strategy';
-import { AbilityFactory } from './modules/auth/abilities/ability.factory';
+import { AuthController } from "./modules/auth/auth.controller";
+import { AuthService } from "./modules/auth/auth.service";
+import { JwtStrategy } from "./modules/auth/strategies/jwt.strategy";
+import { AbilityFactory } from "./modules/auth/abilities/ability.factory";
 
 // Tender Module
-import { TenderController } from './modules/tender/tender.controller';
-import { TenderService } from './modules/tender/tender.service';
+import { TenderController } from "./modules/tender/tender.controller";
+import { TenderService } from "./modules/tender/tender.service";
 
 // Vendor Module
-import { VendorController } from './modules/vendor/vendor.controller';
-import { VendorService } from './modules/vendor/vendor.service';
+import { VendorController } from "./modules/vendor/vendor.controller";
+import { VendorService } from "./modules/vendor/vendor.service";
 
 // Bid Module (simplified without MongoDB)
-import { BidService } from './modules/bid/bid.service';
-import { BidController } from './modules/bid/bid.controller';
+import { BidService } from "./modules/bid/bid.service";
+import { BidController } from "./modules/bid/bid.controller";
 
 // Audit Module
-import { AuditService } from './modules/audit/audit.service';
+import { AuditService } from "./modules/audit/audit.service";
 
 // Events Module (simplified)
-import { EventService } from './modules/events/event.service';
+import { EventService } from "./modules/events/event.service";
 
 // Guards
-import { RolesGuard } from './common/guards/roles.guard';
-import { CaslAbilityGuard } from './common/guards/casl-ability.guard';
+import { RolesGuard } from "./common/guards/roles.guard";
+import { CaslAbilityGuard } from "./common/guards/casl-ability.guard";
 
 // Tenancy
-import { TenantContext } from './common/tenant/tenant-context';
-import { TenantInterceptor } from './common/tenant/tenant.interceptor';
-import { DbTenantSessionInterceptor } from './common/tenant/db-tenant-session.interceptor';
-import { TenantMiddleware } from './common/middleware/tenant.middleware';
+import { TenantContext } from "./common/tenant/tenant-context";
+import { TenantInterceptor } from "./common/tenant/tenant.interceptor";
+import { DbTenantSessionInterceptor } from "./common/tenant/db-tenant-session.interceptor";
+import { TenantMiddleware } from "./common/middleware/tenant.middleware";
 
 // Crypto / KMS
-import { TenantKmsService } from './common/crypto/tenant-kms.service';
+import { TenantKmsService } from "./common/crypto/tenant-kms.service";
 
 // Tenant Provisioning
-import { TenantService } from './modules/tenant/tenant.service';
-import { TenantController as TenantsController } from './modules/tenant/tenant.controller';
+import { TenantService } from "./modules/tenant/tenant.service";
+import { TenantController as TenantsController } from "./modules/tenant/tenant.controller";
+
+// Org Structure
+import { OrgStructureController } from "./modules/org-structure/org-structure.controller";
+import { OrgStructureService } from "./modules/org-structure/org-structure.service";
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env.local',
+      envFilePath: ".env.local",
     }),
 
     // Throttling (Rate Limiting)
@@ -62,33 +66,33 @@ import { TenantController as TenantsController } from './modules/tenant/tenant.c
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => [
         {
-          name: 'short',
-          ttl: parseInt(config.get<string>('THROTTLE_TTL', '60000')),
-          limit: parseInt(config.get<string>('THROTTLE_LIMIT_VENDOR', '10')),
+          name: "short",
+          ttl: parseInt(config.get<string>("THROTTLE_TTL", "60000")),
+          limit: parseInt(config.get<string>("THROTTLE_LIMIT_VENDOR", "10")),
         },
         {
-          name: 'medium',
+          name: "medium",
           ttl: 60000,
-          limit: parseInt(config.get<string>('THROTTLE_LIMIT_USER', '50')),
+          limit: parseInt(config.get<string>("THROTTLE_LIMIT_USER", "50")),
         },
         {
-          name: 'long',
+          name: "long",
           ttl: 60000,
-          limit: parseInt(config.get<string>('THROTTLE_LIMIT_ADMIN', '100')),
+          limit: parseInt(config.get<string>("THROTTLE_LIMIT_ADMIN", "100")),
         },
       ],
       inject: [ConfigService],
     }),
 
     // JWT Authentication
-    PassportModule.register({ defaultStrategy: 'jwt' }),
+    PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET'),
+        secret: config.get<string>("JWT_SECRET"),
         signOptions: {
-          expiresIn: config.get<string>('JWT_EXPIRY', '15m'),
-          algorithm: 'HS256',
+          expiresIn: config.get<string>("JWT_EXPIRY", "15m"),
+          algorithm: "HS256",
         },
       }),
       inject: [ConfigService],
@@ -100,6 +104,7 @@ import { TenantController as TenantsController } from './modules/tenant/tenant.c
     TenderController,
     VendorController,
     BidController,
+    OrgStructureController,
   ],
   providers: [
     // Tenancy
@@ -115,12 +120,12 @@ import { TenantController as TenantsController } from './modules/tenant/tenant.c
 
     // Database Services
     PrismaService,
-    
+
     // Authentication & Authorization
     AuthService,
     JwtStrategy,
     AbilityFactory,
-    
+
     // Core Services
     TenderService,
     VendorService,
@@ -133,7 +138,8 @@ import { TenantController as TenantsController } from './modules/tenant/tenant.c
 
     // Tenant Provisioning
     TenantService,
-    
+    OrgStructureService,
+
     // Guards
     {
       provide: APP_GUARD,
@@ -154,6 +160,6 @@ import { TenantController as TenantsController } from './modules/tenant/tenant.c
 })
 export class AppLocalModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantMiddleware).forRoutes('*');
+    consumer.apply(TenantMiddleware).forRoutes("*");
   }
 }

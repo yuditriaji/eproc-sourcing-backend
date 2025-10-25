@@ -1,5 +1,5 @@
-import { SetMetadata } from '@nestjs/common';
-import { Action, Subjects } from '../../modules/auth/abilities/ability.factory';
+import { SetMetadata } from "@nestjs/common";
+import { Action, Subjects } from "../../modules/auth/abilities/ability.factory";
 
 export interface RequiredRule {
   action: Action;
@@ -7,13 +7,17 @@ export interface RequiredRule {
   field?: string;
 }
 
-export const ABILITY_KEY = 'ability';
-export const CheckAbilities = (...requirements: RequiredRule[]) => 
+export const ABILITY_KEY = "ability";
+export const CheckAbilities = (...requirements: RequiredRule[]) =>
   SetMetadata(ABILITY_KEY, requirements);
 
 // Helper function to create ability requirements
-export const AbilityRequirement = (action: Action, subject: Subjects, field?: string): RequiredRule => ({
+export const AbilityRequirement = (
+  action: Action,
+  subject: Subjects,
+  field?: string,
+): RequiredRule => ({
   action,
   subject,
-  field
+  field,
 });

@@ -1,6 +1,15 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { AbilityFactory, Action, Subjects } from '../../modules/auth/abilities/ability.factory';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import {
+  AbilityFactory,
+  Action,
+  Subjects,
+} from "../../modules/auth/abilities/ability.factory";
 
 export interface RequiredRule {
   action: Action;
@@ -16,8 +25,9 @@ export class CaslAbilityGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const rules = this.reflector.get<RequiredRule[]>('ability', context.getHandler()) ||
-                  this.reflector.get<RequiredRule[]>('ability', context.getClass());
+    const rules =
+      this.reflector.get<RequiredRule[]>("ability", context.getHandler()) ||
+      this.reflector.get<RequiredRule[]>("ability", context.getClass());
 
     if (!rules) {
       return true; // No abilities required
@@ -27,7 +37,7 @@ export class CaslAbilityGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      throw new ForbiddenException('User not authenticated');
+      throw new ForbiddenException("User not authenticated");
     }
 
     // Create ability for user
@@ -41,10 +51,10 @@ export class CaslAbilityGuard implements CanActivate {
     // Check each required rule
     for (const rule of rules) {
       const isAllowed = ability.can(rule.action, rule.subject);
-      
+
       if (!isAllowed) {
         throw new ForbiddenException(
-          `Access denied. Cannot ${rule.action} ${rule.subject}`
+          `Access denied. Cannot ${rule.action} ${rule.subject}`,
         );
       }
     }

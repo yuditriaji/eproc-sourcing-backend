@@ -1,22 +1,24 @@
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { ConfigService } from '@nestjs/config';
-import helmet from 'helmet';
-import cookieParser from 'cookie-parser';
-import { AppModule } from './app.module';
+import { NestFactory } from "@nestjs/core";
+import { ValidationPipe, Logger } from "@nestjs/common";
+import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
+import { ConfigService } from "@nestjs/config";
+import helmet from "helmet";
+import cookieParser from "cookie-parser";
+import { AppModule } from "./app.module";
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+  const logger = new Logger("Bootstrap");
 
-  const isProd = (process.env.NODE_ENV || '').toLowerCase() === 'production';
+  const isProd = (process.env.NODE_ENV || "").toLowerCase() === "production";
   const app = await NestFactory.create(AppModule, {
-    logger: isProd ? ['log', 'error', 'warn'] : ['log', 'error', 'warn', 'debug', 'verbose'],
+    logger: isProd
+      ? ["log", "error", "warn"]
+      : ["log", "error", "warn", "debug", "verbose"],
   });
 
   const configService = app.get(ConfigService);
-  const port = process.env.PORT || configService.get<number>('PORT', 3000);
-  const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
+  const port = process.env.PORT || configService.get<number>("PORT", 3000);
+  const apiPrefix = configService.get<string>("API_PREFIX", "api/v1");
 
   // Security middleware
   app.use(
@@ -30,7 +32,7 @@ async function bootstrap() {
         },
       },
       crossOriginEmbedderPolicy: false,
-      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginResourcePolicy: { policy: "cross-origin" },
     }),
   );
 
@@ -38,7 +40,10 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // CORS configuration
-  const corsOrigin = configService.get<string>('CORS_ORIGIN', 'http://localhost:3001');
+  const corsOrigin = configService.get<string>(
+    "CORS_ORIGIN",
+    "http://localhost:3001",
+  );
   logger.log(`🔗 CORS configured for origin: ${corsOrigin}`);
 
   app.enableCors({
@@ -51,20 +56,20 @@ async function bootstrap() {
       }
 
       logger.warn(`❌ CORS blocked request from origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: [
-      'Origin',
-      'X-Requested-With',
-      'Content-Type',
-      'Accept',
-      'Authorization',
-      'Cache-Control',
-      'Access-Control-Allow-Credentials',
+      "Origin",
+      "X-Requested-With",
+      "Content-Type",
+      "Accept",
+      "Authorization",
+      "Cache-Control",
+      "Access-Control-Allow-Credentials",
     ],
-    exposedHeaders: ['Set-Cookie'],
+    exposedHeaders: ["Set-Cookie"],
     preflightContinue: false,
     optionsSuccessStatus: 200,
   });
@@ -78,7 +83,8 @@ async function bootstrap() {
       whitelist: true, // Strip non-whitelisted properties
       forbidNonWhitelisted: true, // Throw error for non-whitelisted properties
       transform: true,
-      disableErrorMessages: configService.get<string>('NODE_ENV') === 'production',
+      disableErrorMessages:
+        configService.get<string>("NODE_ENV") === "production",
       validationError: {
         target: false,
         value: false,
@@ -87,15 +93,16 @@ async function bootstrap() {
   );
 
   // Conditionally enable Swagger API documentation (default: off in production)
-  const enableSwaggerEnv = configService.get<string>('ENABLE_SWAGGER');
+  const enableSwaggerEnv = configService.get<string>("ENABLE_SWAGGER");
   const enableSwagger = enableSwaggerEnv
-    ? enableSwaggerEnv === 'true'
-    : configService.get<string>('NODE_ENV') !== 'production';
+    ? enableSwaggerEnv === "true"
+    : configService.get<string>("NODE_ENV") !== "production";
 
   if (enableSwagger) {
     const config = new DocumentBuilder()
-      .setTitle('E-Procurement Sourcing API')
-      .setDescription(`
+      .setTitle("E-Procurement Sourcing API")
+      .setDescription(
+        `
       Enterprise Procurement Sourcing Backend with comprehensive role-based access control.
       
       ## Authentication
@@ -117,19 +124,20 @@ async function bootstrap() {
       3. **Users/Admin** score bids using Go microservice
       4. **Camunda workflow** manages approval process
       5. **Events** trigger notifications and integrations
-    `)
-      .setVersion('1.0')
+    `,
+      )
+      .setVersion("1.0")
       .addBearerAuth({
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        description: 'Enter JWT token',
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "Enter JWT token",
       })
-      .addTag('Authentication', 'User authentication and authorization')
-      .addTag('Sourcing - Tenders', 'Tender management with role-based access')
-      .addTag('Sourcing - Bids', 'Vendor bid submission with encryption')
-      .addTag('Scoring', 'Bid evaluation and scoring (Admin/User only)')
-      .addTag('Audit', 'System audit logs and compliance')
+      .addTag("Authentication", "User authentication and authorization")
+      .addTag("Sourcing - Tenders", "Tender management with role-based access")
+      .addTag("Sourcing - Bids", "Vendor bid submission with encryption")
+      .addTag("Scoring", "Bid evaluation and scoring (Admin/User only)")
+      .addTag("Audit", "System audit logs and compliance")
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
@@ -140,47 +148,51 @@ async function bootstrap() {
       swaggerOptions: {
         persistAuthorization: true,
         displayRequestDuration: true,
-        docExpansion: 'none',
+        docExpansion: "none",
         filter: true,
         showRequestHeaders: true,
-        tagsSorter: 'alpha',
+        tagsSorter: "alpha",
       },
     } as const;
 
     SwaggerModule.setup(`${apiPrefix}/docs`, app, document, swaggerOptions);
   } else {
-    logger.log('📚 Swagger is disabled for this environment');
+    logger.log("📚 Swagger is disabled for this environment");
   }
 
   // Health check endpoint
-  app.getHttpAdapter().get('/health', (req, res) => {
+  app.getHttpAdapter().get("/health", (req, res) => {
     res.json({
-      status: 'ok',
+      status: "ok",
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      environment: configService.get<string>('NODE_ENV'),
-      version: '1.0.0',
+      environment: configService.get<string>("NODE_ENV"),
+      version: "1.0.0",
     });
   });
 
   // Graceful shutdown
-  process.on('SIGTERM', async () => {
-    logger.log('SIGTERM received, shutting down gracefully...');
+  process.on("SIGTERM", async () => {
+    logger.log("SIGTERM received, shutting down gracefully...");
     await app.close();
     process.exit(0);
   });
 
-  process.on('SIGINT', async () => {
-    logger.log('SIGINT received, shutting down gracefully...');
+  process.on("SIGINT", async () => {
+    logger.log("SIGINT received, shutting down gracefully...");
     await app.close();
     process.exit(0);
   });
 
-  await app.listen(port, '0.0.0.0'); // Bind to all interfaces for deployment
+  await app.listen(port, "0.0.0.0"); // Bind to all interfaces for deployment
 
-  logger.log(`🚀 Application is running on: http://localhost:${port}/${apiPrefix}`);
+  logger.log(
+    `🚀 Application is running on: http://localhost:${port}/${apiPrefix}`,
+  );
   if (enableSwagger) {
-    logger.log(`📚 Swagger documentation: http://localhost:${port}/${apiPrefix}/docs`);
+    logger.log(
+      `📚 Swagger documentation: http://localhost:${port}/${apiPrefix}/docs`,
+    );
   }
   logger.log(`💖 Health check: http://localhost:${port}/health`);
   logger.log(`🔒 Security: Helmet, CORS, Rate Limiting, Validation enabled`);
@@ -188,6 +200,10 @@ async function bootstrap() {
 }
 
 bootstrap().catch((error) => {
-  Logger.error(`Failed to start application: ${error.message}`, error.stack, 'Bootstrap');
+  Logger.error(
+    `Failed to start application: ${error.message}`,
+    error.stack,
+    "Bootstrap",
+  );
   process.exit(1);
 });

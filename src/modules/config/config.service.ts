@@ -1,19 +1,32 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma/prisma.service';
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { PrismaService } from "../../database/prisma/prisma.service";
 
 @Injectable()
 export class ConfigServiceBasis {
   constructor(private readonly prisma: PrismaService) {}
 
-  async upsertTenantBasis(tenantId: string, body: { tenantConfig?: any; processConfig?: { name: string; processType: string; steps: any } }) {
-    if (!tenantId) throw new BadRequestException('Missing tenant');
+  async upsertTenantBasis(
+    tenantId: string,
+    body: {
+      tenantConfig?: any;
+      processConfig?: { name: string; processType: string; steps: any };
+    },
+  ) {
+    if (!tenantId) throw new BadRequestException("Missing tenant");
 
     let tenantConfig = null;
     if (body.tenantConfig) {
       tenantConfig = await this.prisma.tenantConfig.upsert({
         where: { tenantId },
-        update: { orgStructure: body.tenantConfig.orgStructure ?? null, businessVariants: body.tenantConfig.businessVariants ?? null },
-        create: { tenantId, orgStructure: body.tenantConfig.orgStructure ?? null, businessVariants: body.tenantConfig.businessVariants ?? null },
+        update: {
+          orgStructure: body.tenantConfig.orgStructure ?? null,
+          businessVariants: body.tenantConfig.businessVariants ?? null,
+        },
+        create: {
+          tenantId,
+          orgStructure: body.tenantConfig.orgStructure ?? null,
+          businessVariants: body.tenantConfig.businessVariants ?? null,
+        },
       });
     }
 
@@ -33,24 +46,26 @@ export class ConfigServiceBasis {
   }
 
   async bulkCreateOrgUnits(tenantId: string, json: any) {
-    if (!tenantId) throw new BadRequestException('Missing tenant');
+    if (!tenantId) throw new BadRequestException("Missing tenant");
     const units: any[] = [];
 
     if (json?.ccs && Array.isArray(json.ccs)) {
       for (const cc of json.ccs) {
         // Upsert parent company code to avoid duplicates
         const parent = await this.prisma.orgUnit.upsert({
-          where: { tenantId_companyCode: { tenantId, companyCode: cc.code } as any },
+          where: {
+            tenantId_companyCode: { tenantId, companyCode: cc.code } as any,
+          },
           update: {
             name: cc.name || cc.code,
-            type: 'COMPANY_CODE' as any,
+            type: "COMPANY_CODE" as any,
             level: 1,
           },
           create: {
             tenantId,
             level: 1,
             name: cc.name || cc.code,
-            type: 'COMPANY_CODE' as any,
+            type: "COMPANY_CODE" as any,
             companyCode: cc.code,
           },
         });
@@ -64,7 +79,7 @@ export class ConfigServiceBasis {
             update: {
               parentId: parent.id,
               name: code,
-              type: 'PURCHASING_GROUP' as any,
+              type: "PURCHASING_GROUP" as any,
               level: 2,
             },
             create: {
@@ -72,7 +87,7 @@ export class ConfigServiceBasis {
               parentId: parent.id,
               level: 2,
               name: code,
-              type: 'PURCHASING_GROUP' as any,
+              type: "PURCHASING_GROUP" as any,
               pgCode: code,
             },
           });

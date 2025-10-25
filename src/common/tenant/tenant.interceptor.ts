@@ -1,6 +1,12 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor, ForbiddenException } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { TenantContext } from './tenant-context';
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+  ForbiddenException,
+} from "@nestjs/common";
+import { Observable } from "rxjs";
+import { TenantContext } from "./tenant-context";
 
 @Injectable()
 export class TenantInterceptor implements NestInterceptor {
@@ -13,7 +19,7 @@ export class TenantInterceptor implements NestInterceptor {
 
     // If both exist and mismatch → forbid
     if (resolvedTenantId && userTenantId && resolvedTenantId !== userTenantId) {
-      throw new ForbiddenException('Tenant mismatch');
+      throw new ForbiddenException("Tenant mismatch");
     }
 
     const tenantId = resolvedTenantId ?? userTenantId;

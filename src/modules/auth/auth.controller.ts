@@ -9,17 +9,33 @@ import {
   Get,
   UseInterceptors,
   ClassSerializerInterceptor,
-} from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
-import { Request, Response } from 'express';
-import { AuthGuard } from '@nestjs/passport';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import { IsEmail, IsString, MinLength, MaxLength, IsOptional } from 'class-validator';
-import { AuthService, LoginDto as ILoginDto, RegisterDto as IRegisterDto } from './auth.service';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { TenantContext } from '../../common/tenant/tenant-context';
-import { TenantService } from '../tenant/tenant.service';
+} from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiSecurity,
+} from "@nestjs/swagger";
+import { Request, Response } from "express";
+import { AuthGuard } from "@nestjs/passport";
+import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  MaxLength,
+  IsOptional,
+} from "class-validator";
+import {
+  AuthService,
+  LoginDto as ILoginDto,
+  RegisterDto as IRegisterDto,
+} from "./auth.service";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { TenantContext } from "../../common/tenant/tenant-context";
+import { TenantService } from "../tenant/tenant.service";
 
 export class LoginDto implements ILoginDto {
   @IsEmail()
@@ -58,8 +74,8 @@ export class RegisterDto implements IRegisterDto {
   role?: string;
 }
 
-@ApiTags('Authentication')
-@Controller(':tenant/auth')
+@ApiTags("Authentication")
+@Controller(":tenant/auth")
 @UseInterceptors(ClassSerializerInterceptor)
 @UseGuards(ThrottlerGuard)
 export class AuthController {
@@ -69,50 +85,56 @@ export class AuthController {
     private readonly tenantService: TenantService,
   ) {}
 
-  @Post('login')
+  @Post("login")
   @ApiOperation({
-    summary: 'User login',
-    description: 'Authenticate user with email and password, returns JWT tokens with role-based claims',
+    summary: "User login",
+    description:
+      "Authenticate user with email and password, returns JWT tokens with role-based claims",
   })
   @ApiResponse({
     status: 200,
-    description: 'Login successful',
+    description: "Login successful",
     schema: {
       example: {
-        accessToken: 'jwt-access-token',
+        accessToken: "jwt-access-token",
         user: {
-          id: 'user-id',
-          email: 'user@example.com',
-          username: 'username',
-          role: 'USER',
+          id: "user-id",
+          email: "user@example.com",
+          username: "username",
+          role: "USER",
         },
       },
     },
   })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  @ApiResponse({ status: 403, description: 'Account inactive or not verified' })
-  @ApiResponse({ status: 429, description: 'Too many requests' })
+  @ApiResponse({ status: 401, description: "Invalid credentials" })
+  @ApiResponse({ status: 403, description: "Account inactive or not verified" })
+  @ApiResponse({ status: 429, description: "Too many requests" })
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
   async login(
     @Body() loginDto: LoginDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
-    const userAgent = req.get('User-Agent') || 'unknown';
+    const ipAddress = req.ip || req.connection.remoteAddress || "unknown";
+    const userAgent = req.get("User-Agent") || "unknown";
 
     let tenantId = this.tenantContext.getTenantId();
     if (!tenantId) {
       const slug = (req.params as any)?.tenant as string | undefined;
       tenantId = await this.tenantService.resolveTenantId(slug);
     }
-    const result = await this.authService.login(loginDto, ipAddress, userAgent, tenantId);
+    const result = await this.authService.login(
+      loginDto,
+      ipAddress,
+      userAgent,
+      tenantId,
+    );
 
     // Set refresh token as httpOnly cookie
-    res.cookie('refreshToken', result.refreshToken, {
+    res.cookie("refreshToken", result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -122,39 +144,48 @@ export class AuthController {
     };
   }
 
-  @Post('register')
+  @Post("register")
   @ApiOperation({
-    summary: 'User registration',
-    description: 'Register new user account. Vendors require manual verification.',
+    summary: "User registration",
+    description:
+      "Register new user account. Vendors require manual verification.",
   })
   @ApiResponse({
     status: 201,
-    description: 'Registration successful',
+    description: "Registration successful",
   })
-  @ApiResponse({ status: 400, description: 'User already exists or validation error' })
-  @ApiResponse({ status: 403, description: 'Account requires verification' })
-  @ApiResponse({ status: 429, description: 'Too many requests' })
+  @ApiResponse({
+    status: 400,
+    description: "User already exists or validation error",
+  })
+  @ApiResponse({ status: 403, description: "Account requires verification" })
+  @ApiResponse({ status: 429, description: "Too many requests" })
   @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 attempts per minute for registration
   async register(
     @Body() registerDto: RegisterDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
-    const userAgent = req.get('User-Agent') || 'unknown';
+    const ipAddress = req.ip || req.connection.remoteAddress || "unknown";
+    const userAgent = req.get("User-Agent") || "unknown";
 
     let tenantId = this.tenantContext.getTenantId();
     if (!tenantId) {
       const slug = (req.params as any)?.tenant as string | undefined;
       tenantId = await this.tenantService.resolveTenantId(slug);
     }
-    const result = await this.authService.register(registerDto, ipAddress, userAgent, tenantId);
+    const result = await this.authService.register(
+      registerDto,
+      ipAddress,
+      userAgent,
+      tenantId,
+    );
 
     // Set refresh token as httpOnly cookie for verified users
-    res.cookie('refreshToken', result.refreshToken, {
+    res.cookie("refreshToken", result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -164,118 +195,125 @@ export class AuthController {
     };
   }
 
-  @Post('refresh')
+  @Post("refresh")
   @ApiOperation({
-    summary: 'Refresh access token',
-    description: 'Generate new access token using refresh token',
+    summary: "Refresh access token",
+    description: "Generate new access token using refresh token",
   })
   @ApiResponse({
     status: 200,
-    description: 'Token refreshed successfully',
+    description: "Token refreshed successfully",
     schema: {
       example: {
-        accessToken: 'new-jwt-access-token',
+        accessToken: "new-jwt-access-token",
       },
     },
   })
-  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
-  @ApiResponse({ status: 429, description: 'Too many requests' })
+  @ApiResponse({ status: 401, description: "Invalid or expired refresh token" })
+  @ApiResponse({ status: 429, description: "Too many requests" })
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 attempts per minute
   async refresh(@Req() req: Request) {
     const refreshToken = req.cookies?.refreshToken;
-    
+
     if (!refreshToken) {
-      return { status: HttpStatus.UNAUTHORIZED, message: 'Refresh token not found' };
+      return {
+        status: HttpStatus.UNAUTHORIZED,
+        message: "Refresh token not found",
+      };
     }
 
-    const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
-    const userAgent = req.get('User-Agent') || 'unknown';
+    const ipAddress = req.ip || req.connection.remoteAddress || "unknown";
+    const userAgent = req.get("User-Agent") || "unknown";
 
-    const result = await this.authService.refreshToken(refreshToken, ipAddress, userAgent);
-    
+    const result = await this.authService.refreshToken(
+      refreshToken,
+      ipAddress,
+      userAgent,
+    );
+
     return result;
   }
 
-  @Post('logout')
-  @UseGuards(AuthGuard('jwt'))
+  @Post("logout")
+  @UseGuards(AuthGuard("jwt"))
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'User logout',
-    description: 'Logout user and revoke refresh token',
+    summary: "User logout",
+    description: "Logout user and revoke refresh token",
   })
-  @ApiResponse({ status: 200, description: 'Logout successful' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 200, description: "Logout successful" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const userId = (req.user as any)?.userId;
     const refreshToken = req.cookies?.refreshToken;
-    const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
-    const userAgent = req.get('User-Agent') || 'unknown';
+    const ipAddress = req.ip || req.connection.remoteAddress || "unknown";
+    const userAgent = req.get("User-Agent") || "unknown";
 
     if (userId && refreshToken) {
       await this.authService.logout(userId, refreshToken, ipAddress, userAgent);
     }
 
     // Clear refresh token cookie
-    res.clearCookie('refreshToken');
+    res.clearCookie("refreshToken");
 
-    return { message: 'Logout successful' };
+    return { message: "Logout successful" };
   }
 
-  @Get('me')
-  @UseGuards(AuthGuard('jwt'))
+  @Get("me")
+  @UseGuards(AuthGuard("jwt"))
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Get current user profile',
-    description: 'Get authenticated user profile information',
+    summary: "Get current user profile",
+    description: "Get authenticated user profile information",
   })
   @ApiResponse({
     status: 200,
-    description: 'User profile retrieved',
+    description: "User profile retrieved",
     schema: {
       example: {
-        userId: 'user-id',
-        email: 'user@example.com',
-        username: 'username',
-        role: 'USER',
-        abilities: []
+        userId: "user-id",
+        email: "user@example.com",
+        username: "username",
+        role: "USER",
+        abilities: [],
       },
     },
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
   async getProfile(@Req() req: Request) {
     return req.user as any;
   }
 
-  @Get('roles/config')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('ADMIN')
+  @Get("roles/config")
+  @UseGuards(AuthGuard("jwt"), RolesGuard)
+  @Roles("ADMIN")
   @ApiBearerAuth()
-  @ApiSecurity('JWT')
+  @ApiSecurity("JWT")
   @ApiOperation({
-    summary: 'Get role configuration (Admin only)',
-    description: 'Retrieve role-based permissions configuration',
+    summary: "Get role configuration (Admin only)",
+    description: "Retrieve role-based permissions configuration",
   })
-  @ApiResponse({ status: 200, description: 'Role configuration retrieved' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  @ApiResponse({ status: 200, description: "Role configuration retrieved" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @ApiResponse({ status: 403, description: "Forbidden - Admin role required" })
   async getRoleConfig() {
     // This would typically fetch role configurations from database
     return {
       roles: [
         {
-          role: 'ADMIN',
-          permissions: ['*'], // All permissions
-          description: 'System administrator with full access',
+          role: "ADMIN",
+          permissions: ["*"], // All permissions
+          description: "System administrator with full access",
         },
         {
-          role: 'USER',
-          permissions: ['read:tenders', 'create:tenders', 'score:bids'],
-          description: 'Internal user who can create tenders and score bids',
+          role: "USER",
+          permissions: ["read:tenders", "create:tenders", "score:bids"],
+          description: "Internal user who can create tenders and score bids",
         },
         {
-          role: 'VENDOR',
-          permissions: ['read:own', 'create:bids', 'submit:bids'],
-          description: 'External vendor who can submit bids',
+          role: "VENDOR",
+          permissions: ["read:own", "create:bids", "submit:bids"],
+          description: "External vendor who can submit bids",
         },
       ],
     };

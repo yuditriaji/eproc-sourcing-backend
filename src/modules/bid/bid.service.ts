@@ -1,10 +1,15 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma/prisma.service';
-import { AuditService } from '../audit/audit.service';
-import { EventService } from '../events/event.service';
-import { AbilityFactory, Action } from '../auth/abilities/ability.factory';
-import * as crypto from 'crypto';
-import { TenantKmsService } from '../../common/crypto/tenant-kms.service';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { PrismaService } from "../../database/prisma/prisma.service";
+import { AuditService } from "../audit/audit.service";
+import { EventService } from "../events/event.service";
+import { AbilityFactory, Action } from "../auth/abilities/ability.factory";
+import * as crypto from "crypto";
+import { TenantKmsService } from "../../common/crypto/tenant-kms.service";
 
 export interface CreateBidDto {
   tenderId: string;
@@ -39,8 +44,8 @@ export class BidService {
     userAgent: string,
   ) {
     // Only vendors can create bids
-    if (userRole !== 'VENDOR') {
-      throw new ForbiddenException('Only vendors can create bids');
+    if (userRole !== "VENDOR") {
+      throw new ForbiddenException("Only vendors can create bids");
     }
 
     // Check if tender exists and is published
@@ -49,16 +54,16 @@ export class BidService {
     });
 
     if (!tender) {
-      throw new NotFoundException('Tender not found');
+      throw new NotFoundException("Tender not found");
     }
 
-    if (tender.status !== 'PUBLISHED') {
-      throw new BadRequestException('Cannot bid on unpublished tender');
+    if (tender.status !== "PUBLISHED") {
+      throw new BadRequestException("Cannot bid on unpublished tender");
     }
 
     // Check if tender is still open
     if (tender.closingDate && new Date() > tender.closingDate) {
-      throw new BadRequestException('Tender has closed');
+      throw new BadRequestException("Tender has closed");
     }
 
     // Check if vendor has already submitted a bid
@@ -70,7 +75,7 @@ export class BidService {
     });
 
     if (existingBid) {
-      throw new BadRequestException('Bid already exists for this tender');
+      throw new BadRequestException("Bid already exists for this tender");
     }
 
     // Encrypt sensitive bid data
@@ -81,13 +86,13 @@ export class BidService {
     });
 
     const bid = await this.prismaService.bid.create({
-      data: ({
+      data: {
         tenderId: createBidDto.tenderId,
         vendorId: userId,
         encryptedData: ciphertext,
         keyVersion,
-        status: 'DRAFT',
-      } as any),
+        status: "DRAFT",
+      } as any,
       include: {
         tender: {
           select: {
@@ -95,20 +100,20 @@ export class BidService {
             status: true,
           },
         },
-            vendor: {
-              select: {
-                name: true,
-                contactEmail: true,
-              },
-            },
+        vendor: {
+          select: {
+            name: true,
+            contactEmail: true,
+          },
+        },
       },
     });
 
     // Audit log
     await this.auditService.log({
       userId,
-      action: 'bid_created',
-      targetType: 'Bid',
+      action: "bid_created",
+      targetType: "Bid",
       targetId: bid.id,
       newValues: { bidId: bid.id, tenderId: createBidDto.tenderId },
       ipAddress,
@@ -116,7 +121,7 @@ export class BidService {
     });
 
     // Emit event
-    await this.eventService.emit('bid.created', {
+    await this.eventService.emit("bid.created", {
       bidId: bid.id,
       tenderId: createBidDto.tenderId,
       vendorId: userId,
@@ -139,23 +144,23 @@ export class BidService {
 
     // Apply role-based filtering
     switch (userRole) {
-      case 'ADMIN':
+      case "ADMIN":
         // Admin can see all bids
         break;
-      case 'USER':
+      case "USER":
         // Users can see bids for their tenders
         const userTenders = await this.prismaService.tender.findMany({
           where: { creatorId: userId },
           select: { id: true },
         });
-        where.tenderId = { in: userTenders.map(t => t.id) };
+        where.tenderId = { in: userTenders.map((t) => t.id) };
         break;
-      case 'VENDOR':
+      case "VENDOR":
         // Vendors can only see their own bids
         where.vendorId = userId;
         break;
       default:
-        throw new ForbiddenException('Invalid user role');
+        throw new ForbiddenException("Invalid user role");
     }
 
     // Apply additional filters
@@ -164,7 +169,7 @@ export class BidService {
 
     const bids = await this.prismaService.bid.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: filters?.limit || 20,
       skip: filters?.offset || 0,
       include: {
@@ -175,23 +180,25 @@ export class BidService {
             closingDate: true,
           },
         },
-            vendor: {
-              select: {
-                name: true,
-                contactEmail: true,
-              },
-            },
+        vendor: {
+          select: {
+            name: true,
+            contactEmail: true,
+          },
+        },
       },
     });
 
     // Decrypt sensitive data if user has access
-    return bids.map(bid => {
-      if (userRole === 'VENDOR' && bid.vendorId !== userId) {
+    return bids.map((bid) => {
+      if (userRole === "VENDOR" && bid.vendorId !== userId) {
         // Vendors cannot see other vendors' bid details
         delete bid.encryptedData;
       } else if (bid.encryptedData) {
         try {
-          (bid as any).decryptedData = this.decryptWithTenantDek(bid.encryptedData);
+          (bid as any).decryptedData = this.decryptWithTenantDek(
+            bid.encryptedData,
+          );
         } catch (error) {
           // If decryption fails, remove encrypted data
           delete (bid as any).encryptedData;
@@ -213,33 +220,35 @@ export class BidService {
             creatorId: true,
           },
         },
-            vendor: {
-              select: {
-                name: true,
-                contactEmail: true,
-              },
-            },
+        vendor: {
+          select: {
+            name: true,
+            contactEmail: true,
+          },
+        },
       },
     });
 
     if (!bid) {
-      throw new NotFoundException('Bid not found');
+      throw new NotFoundException("Bid not found");
     }
 
     // Check access permissions
-    const canAccess = 
-      userRole === 'ADMIN' ||
-      (userRole === 'VENDOR' && bid.vendorId === userId) ||
-      (userRole === 'USER' && bid.tender.creatorId === userId);
+    const canAccess =
+      userRole === "ADMIN" ||
+      (userRole === "VENDOR" && bid.vendorId === userId) ||
+      (userRole === "USER" && bid.tender.creatorId === userId);
 
     if (!canAccess) {
-      throw new ForbiddenException('Access denied to this bid');
+      throw new ForbiddenException("Access denied to this bid");
     }
 
     // Decrypt sensitive data if authorized
     if (bid.encryptedData) {
       try {
-        (bid as any).decryptedData = this.decryptSensitiveData(bid.encryptedData);
+        (bid as any).decryptedData = this.decryptSensitiveData(
+          bid.encryptedData,
+        );
       } catch (error) {
         delete (bid as any).encryptedData;
       }
@@ -264,22 +273,25 @@ export class BidService {
     });
 
     if (!existingBid) {
-      throw new NotFoundException('Bid not found');
+      throw new NotFoundException("Bid not found");
     }
 
     // Only vendors can update their own bids
-    if (userRole !== 'VENDOR' || existingBid.vendorId !== userId) {
-      throw new ForbiddenException('Access denied');
+    if (userRole !== "VENDOR" || existingBid.vendorId !== userId) {
+      throw new ForbiddenException("Access denied");
     }
 
     // Cannot update submitted bids
-    if (existingBid.status !== 'DRAFT') {
-      throw new BadRequestException('Cannot update submitted bid');
+    if (existingBid.status !== "DRAFT") {
+      throw new BadRequestException("Cannot update submitted bid");
     }
 
     // Check if tender is still open
-    if (existingBid.tender.closingDate && new Date() > existingBid.tender.closingDate) {
-      throw new BadRequestException('Tender has closed');
+    if (
+      existingBid.tender.closingDate &&
+      new Date() > existingBid.tender.closingDate
+    ) {
+      throw new BadRequestException("Tender has closed");
     }
 
     // Encrypt sensitive updated data
@@ -300,17 +312,17 @@ export class BidService {
     // Audit log
     await this.auditService.log({
       userId,
-      action: 'bid_updated',
-      targetType: 'Bid',
+      action: "bid_updated",
+      targetType: "Bid",
       targetId: bidId,
       oldValues: { status: existingBid.status },
-      newValues: { status: 'DRAFT', updated: true },
+      newValues: { status: "DRAFT", updated: true },
       ipAddress,
       userAgent,
     });
 
     // Emit event
-    await this.eventService.emit('bid.updated', {
+    await this.eventService.emit("bid.updated", {
       bidId,
       vendorId: userId,
       tenderId: existingBid.tenderId,
@@ -334,27 +346,27 @@ export class BidService {
     });
 
     if (!bid) {
-      throw new NotFoundException('Bid not found');
+      throw new NotFoundException("Bid not found");
     }
 
     // Only vendors can submit their own bids
-    if (userRole !== 'VENDOR' || bid.vendorId !== userId) {
-      throw new ForbiddenException('Access denied');
+    if (userRole !== "VENDOR" || bid.vendorId !== userId) {
+      throw new ForbiddenException("Access denied");
     }
 
-    if (bid.status !== 'DRAFT') {
-      throw new BadRequestException('Bid has already been submitted');
+    if (bid.status !== "DRAFT") {
+      throw new BadRequestException("Bid has already been submitted");
     }
 
     // Check if tender is still open
     if (bid.tender.closingDate && new Date() > bid.tender.closingDate) {
-      throw new BadRequestException('Tender has closed');
+      throw new BadRequestException("Tender has closed");
     }
 
     const submittedBid = await this.prismaService.bid.update({
       where: { id: bidId },
       data: {
-        status: 'SUBMITTED',
+        status: "SUBMITTED",
         submittedAt: new Date(),
       },
     });
@@ -362,17 +374,17 @@ export class BidService {
     // Audit log
     await this.auditService.log({
       userId,
-      action: 'bid_submitted',
-      targetType: 'Bid',
+      action: "bid_submitted",
+      targetType: "Bid",
       targetId: bidId,
-      oldValues: { status: 'DRAFT' },
-      newValues: { status: 'SUBMITTED' },
+      oldValues: { status: "DRAFT" },
+      newValues: { status: "SUBMITTED" },
       ipAddress,
       userAgent,
     });
 
     // Emit event to trigger scoring workflow
-    await this.eventService.emit('bid.submitted', {
+    await this.eventService.emit("bid.submitted", {
       bidId,
       tenderId: bid.tenderId,
       vendorId: userId,
@@ -384,51 +396,65 @@ export class BidService {
 
   private encryptSensitiveData(data: any): string {
     try {
-      const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'fallback-key', 'salt', 32);
+      const key = crypto.scryptSync(
+        process.env.ENCRYPTION_KEY || "fallback-key",
+        "salt",
+        32,
+      );
       const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-      
-      let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
-      encrypted += cipher.final('hex');
-      
+      const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+
+      let encrypted = cipher.update(JSON.stringify(data), "utf8", "hex");
+      encrypted += cipher.final("hex");
+
       const authTag = cipher.getAuthTag();
-      
+
       return JSON.stringify({
         encrypted,
-        iv: iv.toString('hex'),
-        authTag: authTag.toString('hex'),
+        iv: iv.toString("hex"),
+        authTag: authTag.toString("hex"),
       });
     } catch (error) {
-      throw new Error('Failed to encrypt sensitive data');
+      throw new Error("Failed to encrypt sensitive data");
     }
   }
 
   private decryptSensitiveData(encryptedString: string): any {
     try {
       const { encrypted, iv, authTag } = JSON.parse(encryptedString);
-      const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'fallback-key', 'salt', 32);
-      
-      const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'hex'));
-      decipher.setAuthTag(Buffer.from(authTag, 'hex'));
-      
-      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
-      
+      const key = crypto.scryptSync(
+        process.env.ENCRYPTION_KEY || "fallback-key",
+        "salt",
+        32,
+      );
+
+      const decipher = crypto.createDecipheriv(
+        "aes-256-gcm",
+        key,
+        Buffer.from(iv, "hex"),
+      );
+      decipher.setAuthTag(Buffer.from(authTag, "hex"));
+
+      let decrypted = decipher.update(encrypted, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+
       return JSON.parse(decrypted);
     } catch (error) {
-      throw new Error('Failed to decrypt sensitive data');
+      throw new Error("Failed to decrypt sensitive data");
     }
   }
 
-  private async encryptWithTenantDek(obj: any): Promise<{ ciphertext: string; keyVersion: number }> {
+  private async encryptWithTenantDek(
+    obj: any,
+  ): Promise<{ ciphertext: string; keyVersion: number }> {
     const active = await this.tenantKms.getActiveDek();
     const dek = this.tenantKms.unwrapDek(active.wrappedDek);
     const iv = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv('aes-256-gcm', dek, iv);
-    const plaintext = Buffer.from(JSON.stringify(obj), 'utf8');
+    const cipher = crypto.createCipheriv("aes-256-gcm", dek, iv);
+    const plaintext = Buffer.from(JSON.stringify(obj), "utf8");
     const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
     const tag = cipher.getAuthTag();
-    const payload = Buffer.concat([iv, tag, encrypted]).toString('base64');
+    const payload = Buffer.concat([iv, tag, encrypted]).toString("base64");
     return { ciphertext: payload, keyVersion: active.version };
   }
 
@@ -436,6 +462,6 @@ export class BidService {
     const tenantIdDek = this.tenantKms.getActiveDek();
     // Note: decrypt with currently active key; for key rotation you should pick by keyVersion
     // Kept simple for now; a real impl would select the version per-record.
-    throw new Error('Not implemented: decryptWithTenantDek');
+    throw new Error("Not implemented: decryptWithTenantDek");
   }
 }

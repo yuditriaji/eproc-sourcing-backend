@@ -1,12 +1,12 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
-import * as crypto from 'crypto';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document } from "mongoose";
+import * as crypto from "crypto";
 
 export type BidDocumentDocument = BidDocument & Document;
 
 @Schema({
   timestamps: true,
-  collection: 'bid_documents'
+  collection: "bid_documents",
 })
 export class BidDocument {
   @Prop({ required: true, index: true })
@@ -88,30 +88,34 @@ BidDocumentSchema.index({ tenantId: 1, vendorId: 1, tenderId: 1 });
 BidDocumentSchema.index({ tenantId: 1, isSubmitted: 1, submittedAt: 1 });
 
 // Encrypt sensitive content before saving using per-tenant derived key
-BidDocumentSchema.pre('save', function(next) {
-  if (this.isModified('encryptedContent') && this.encryptedContent && !this.isEncrypted) {
-    const base = process.env.ENCRYPTION_KEY || 'fallback-key';
-    const tenantComponent = this.tenantId || 'no-tenant';
-    const key = crypto.scryptSync(`${base}:${tenantComponent}`, 'salt', 32);
+BidDocumentSchema.pre("save", function (next) {
+  if (
+    this.isModified("encryptedContent") &&
+    this.encryptedContent &&
+    !this.isEncrypted
+  ) {
+    const base = process.env.ENCRYPTION_KEY || "fallback-key";
+    const tenantComponent = this.tenantId || "no-tenant";
+    const key = crypto.scryptSync(`${base}:${tenantComponent}`, "salt", 32);
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-    
-    let encrypted = cipher.update(this.encryptedContent, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
+    const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+
+    let encrypted = cipher.update(this.encryptedContent, "utf8", "hex");
+    encrypted += cipher.final("hex");
+
     this.encryptedContent = encrypted;
-    this.initializationVector = iv.toString('hex');
-    this.authTag = cipher.getAuthTag().toString('hex');
-    this.encryptionAlgorithm = 'aes-256-gcm';
+    this.initializationVector = iv.toString("hex");
+    this.authTag = cipher.getAuthTag().toString("hex");
+    this.encryptionAlgorithm = "aes-256-gcm";
     this.isEncrypted = true;
   }
-  
+
   // Update checksum if content changed
-  if (this.isModified('encryptedContent') || this.isModified('filePath')) {
-    const hash = crypto.createHash('sha256');
+  if (this.isModified("encryptedContent") || this.isModified("filePath")) {
+    const hash = crypto.createHash("sha256");
     hash.update(this.encryptedContent || this.filePath);
-    this.checksum = hash.digest('hex');
+    this.checksum = hash.digest("hex");
   }
-  
+
   next();
 });

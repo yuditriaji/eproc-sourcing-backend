@@ -1,8 +1,13 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma/prisma.service';
-import { AuditService } from '../audit/audit.service';
-import { EventService } from '../events/event.service';
-import { AbilityFactory, Action } from '../auth/abilities/ability.factory';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { PrismaService } from "../../database/prisma/prisma.service";
+import { AuditService } from "../audit/audit.service";
+import { EventService } from "../events/event.service";
+import { AbilityFactory, Action } from "../auth/abilities/ability.factory";
 
 export interface CreateTenderDto {
   title: string;
@@ -13,6 +18,12 @@ export interface CreateTenderDto {
   closingDate: Date;
   category?: string;
   department?: string;
+  // SAP org refs (optional)
+  companyCodeId?: string;
+  plantId?: string;
+  storageLocationId?: string;
+  purchasingOrgId?: string;
+  purchasingGroupId?: string;
 }
 
 export interface UpdateTenderDto {
@@ -43,24 +54,47 @@ export class TenderService {
     userAgent: string,
   ) {
     // Role-based permission check
-    if (userRole !== 'ADMIN' && userRole !== 'USER') {
-      throw new ForbiddenException('Insufficient permissions to create tender');
+    if (userRole !== "ADMIN" && userRole !== "USER") {
+      throw new ForbiddenException("Insufficient permissions to create tender");
     }
 
     // Validate required fields
     if (!createTenderDto.title || !createTenderDto.description) {
-      throw new BadRequestException('Title and description are required');
+      throw new BadRequestException("Title and description are required");
     }
 
     // Set department scoping for users (not admin)
     const tenderData = {
       ...createTenderDto,
       creatorId: userId,
-      department: userRole === 'USER' ? createTenderDto.department : undefined,
+      department: userRole === "USER" ? createTenderDto.department : undefined,
     };
 
+    // Validate purchasing org assignment if provided
+    const porgId = (createTenderDto as any).purchasingOrgId as
+      | string
+      | undefined;
+    const plantId = (createTenderDto as any).plantId as string | undefined;
+    const companyCodeId = (createTenderDto as any).companyCodeId as
+      | string
+      | undefined;
+    if (porgId && (plantId || companyCodeId)) {
+      const assignment =
+        await this.prismaService.purchasingOrgAssignment.findFirst({
+          where: {
+            purchasingOrgId: porgId,
+            ...(plantId ? { plantId } : {}),
+            ...(companyCodeId ? { companyCodeId } : {}),
+          },
+        });
+      if (!assignment)
+        throw new BadRequestException(
+          "Purchasing org is not assigned to the provided plant/company code",
+        );
+    }
+
     const tender = await this.prismaService.tender.create({
-      data: ({
+      data: {
         title: tenderData.title,
         description: tenderData.description,
         requirements: tenderData.requirements,
@@ -72,8 +106,13 @@ export class TenderService {
         creatorId: userId,
         processConfigId: (createTenderDto as any).processConfigId,
         orgUnitId: (createTenderDto as any).orgUnitId,
+        companyCodeId: (createTenderDto as any).companyCodeId,
+        plantId: (createTenderDto as any).plantId,
+        storageLocationId: (createTenderDto as any).storageLocationId,
+        purchasingOrgId: (createTenderDto as any).purchasingOrgId,
+        purchasingGroupId: (createTenderDto as any).purchasingGroupId,
         tenderNumber: `TDR-${Date.now()}`, // Temporary number generation
-      } as any),
+      } as any,
       include: {
         creator: {
           select: {
@@ -88,8 +127,8 @@ export class TenderService {
     // Audit log
     await this.auditService.log({
       userId,
-      action: 'tender_created',
-      targetType: 'Tender',
+      action: "tender_created",
+      targetType: "Tender",
       targetId: tender.id,
       newValues: tender,
       ipAddress,
@@ -97,7 +136,7 @@ export class TenderService {
     });
 
     // Emit event
-    await this.eventService.emit('tender.created', {
+    await this.eventService.emit("tender.created", {
       tenderId: tender.id,
       creatorId: userId,
       department: tender.department,
@@ -123,10 +162,10 @@ export class TenderService {
 
     // Apply role-based filtering
     switch (userRole) {
-      case 'ADMIN':
+      case "ADMIN":
         // Admin can see all tenders
         break;
-      case 'USER':
+      case "USER":
         // Users can see all tenders but with department context
         if (department) {
           where.OR = [
@@ -135,12 +174,12 @@ export class TenderService {
           ];
         }
         break;
-      case 'VENDOR':
+      case "VENDOR":
         // Vendors can only see published tenders
-        where.status = 'PUBLISHED';
+        where.status = "PUBLISHED";
         break;
       default:
-        throw new ForbiddenException('Invalid user role');
+        throw new ForbiddenException("Invalid user role");
     }
 
     // Apply additional filters
@@ -150,7 +189,7 @@ export class TenderService {
 
     const tenders = await this.prismaService.tender.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: filters?.limit || 20,
       skip: filters?.offset || 0,
       include: {
@@ -161,19 +200,22 @@ export class TenderService {
             role: true,
           },
         },
-        bids: userRole !== 'VENDOR' ? {
-          select: {
-            id: true,
-            status: true,
-            submittedAt: true,
-            vendor: {
-              select: {
-                name: true,
-                contactEmail: true,
-              },
-            },
-          },
-        } : false,
+        bids:
+          userRole !== "VENDOR"
+            ? {
+                select: {
+                  id: true,
+                  status: true,
+                  submittedAt: true,
+                  vendor: {
+                    select: {
+                      name: true,
+                      contactEmail: true,
+                    },
+                  },
+                },
+              }
+            : false,
       },
     });
 
@@ -181,7 +223,7 @@ export class TenderService {
   }
 
   async getTenderById(tenderId: string, userId: string, userRole: string) {
-const tender = await this.prismaService.tender.findFirst({
+    const tender = await this.prismaService.tender.findFirst({
       where: { id: tenderId },
       include: {
         creator: {
@@ -191,36 +233,39 @@ const tender = await this.prismaService.tender.findFirst({
             role: true,
           },
         },
-        bids: userRole !== 'VENDOR' ? {
-          include: {
-            vendor: {
-              select: {
-                name: true,
-                contactEmail: true,
+        bids:
+          userRole !== "VENDOR"
+            ? {
+                include: {
+                  vendor: {
+                    select: {
+                      name: true,
+                      contactEmail: true,
+                    },
+                  },
+                },
+              }
+            : {
+                where: { vendorId: userId }, // Vendors only see their own bids
+                include: {
+                  vendor: {
+                    select: {
+                      name: true,
+                      contactEmail: true,
+                    },
+                  },
+                },
               },
-            },
-          },
-        } : {
-          where: { vendorId: userId }, // Vendors only see their own bids
-          include: {
-            vendor: {
-              select: {
-                name: true,
-                contactEmail: true,
-              },
-            },
-          },
-        },
       },
     });
 
     if (!tender) {
-      throw new NotFoundException('Tender not found');
+      throw new NotFoundException("Tender not found");
     }
 
     // Role-based permission check
-    if (userRole === 'VENDOR' && tender.status !== 'PUBLISHED') {
-      throw new ForbiddenException('Cannot view unpublished tender');
+    if (userRole === "VENDOR" && tender.status !== "PUBLISHED") {
+      throw new ForbiddenException("Cannot view unpublished tender");
     }
 
     return tender;
@@ -234,30 +279,32 @@ const tender = await this.prismaService.tender.findFirst({
     ipAddress: string,
     userAgent: string,
   ) {
-const existingTender = await this.prismaService.tender.findFirst({
+    const existingTender = await this.prismaService.tender.findFirst({
       where: { id: tenderId },
     });
 
     if (!existingTender) {
-      throw new NotFoundException('Tender not found');
+      throw new NotFoundException("Tender not found");
     }
 
     // Role-based permission check
-    if (userRole !== 'ADMIN' && userRole !== 'USER') {
-      throw new ForbiddenException('Insufficient permissions to update tender');
+    if (userRole !== "ADMIN" && userRole !== "USER") {
+      throw new ForbiddenException("Insufficient permissions to update tender");
     }
-    if (userRole === 'USER' && existingTender.creatorId !== userId) {
-      throw new ForbiddenException('Users can only update their own tenders');
+    if (userRole === "USER" && existingTender.creatorId !== userId) {
+      throw new ForbiddenException("Users can only update their own tenders");
     }
 
     // Prevent updates if tender has been published and has bids
-    if (existingTender.status !== 'DRAFT' && userRole !== 'ADMIN') {
+    if (existingTender.status !== "DRAFT" && userRole !== "ADMIN") {
       const bidCount = await this.prismaService.bid.count({
         where: { tenderId },
       });
 
       if (bidCount > 0) {
-        throw new BadRequestException('Cannot update tender with existing bids');
+        throw new BadRequestException(
+          "Cannot update tender with existing bids",
+        );
       }
     }
 
@@ -278,8 +325,8 @@ const existingTender = await this.prismaService.tender.findFirst({
     // Audit log
     await this.auditService.log({
       userId,
-      action: 'tender_updated',
-      targetType: 'Tender',
+      action: "tender_updated",
+      targetType: "Tender",
       targetId: tenderId,
       oldValues: existingTender,
       newValues: updatedTender,
@@ -288,7 +335,7 @@ const existingTender = await this.prismaService.tender.findFirst({
     });
 
     // Emit event
-    await this.eventService.emit('tender.updated', {
+    await this.eventService.emit("tender.updated", {
       tenderId: updatedTender.id,
       updatedBy: userId,
       changes: Object.keys(updateTenderDto),
@@ -304,30 +351,32 @@ const existingTender = await this.prismaService.tender.findFirst({
     ipAddress: string,
     userAgent: string,
   ) {
-const tender = await this.prismaService.tender.findFirst({
+    const tender = await this.prismaService.tender.findFirst({
       where: { id: tenderId },
     });
 
     if (!tender) {
-      throw new NotFoundException('Tender not found');
+      throw new NotFoundException("Tender not found");
     }
 
     // Role-based permission check
-    if (userRole !== 'ADMIN' && userRole !== 'USER') {
-      throw new ForbiddenException('Insufficient permissions to publish tender');
+    if (userRole !== "ADMIN" && userRole !== "USER") {
+      throw new ForbiddenException(
+        "Insufficient permissions to publish tender",
+      );
     }
-    if (userRole === 'USER' && tender.creatorId !== userId) {
-      throw new ForbiddenException('Users can only publish their own tenders');
+    if (userRole === "USER" && tender.creatorId !== userId) {
+      throw new ForbiddenException("Users can only publish their own tenders");
     }
 
-    if (tender.status !== 'DRAFT') {
-      throw new BadRequestException('Only draft tenders can be published');
+    if (tender.status !== "DRAFT") {
+      throw new BadRequestException("Only draft tenders can be published");
     }
 
     const publishedTender = await this.prismaService.tender.update({
       where: { id: tenderId },
       data: {
-        status: 'PUBLISHED',
+        status: "PUBLISHED",
         publishedAt: new Date(),
       },
     });
@@ -335,17 +384,17 @@ const tender = await this.prismaService.tender.findFirst({
     // Audit log
     await this.auditService.log({
       userId,
-      action: 'tender_published',
-      targetType: 'Tender',
+      action: "tender_published",
+      targetType: "Tender",
       targetId: tenderId,
-      oldValues: { status: 'DRAFT' },
-      newValues: { status: 'PUBLISHED' },
+      oldValues: { status: "DRAFT" },
+      newValues: { status: "PUBLISHED" },
       ipAddress,
       userAgent,
     });
 
     // Emit event to start Camunda workflow
-    await this.eventService.emit('tender.published', {
+    await this.eventService.emit("tender.published", {
       tenderId: publishedTender.id,
       publishedBy: userId,
       userRole,
@@ -364,25 +413,25 @@ const tender = await this.prismaService.tender.findFirst({
     ipAddress: string,
     userAgent: string,
   ) {
-const tender = await this.prismaService.tender.findFirst({
+    const tender = await this.prismaService.tender.findFirst({
       where: { id: tenderId },
     });
 
     if (!tender) {
-      throw new NotFoundException('Tender not found');
+      throw new NotFoundException("Tender not found");
     }
 
     // Role-based permission check
-    if (userRole !== 'ADMIN' && userRole !== 'USER') {
-      throw new ForbiddenException('Insufficient permissions to delete tender');
+    if (userRole !== "ADMIN" && userRole !== "USER") {
+      throw new ForbiddenException("Insufficient permissions to delete tender");
     }
-    if (userRole === 'USER' && tender.creatorId !== userId) {
-      throw new ForbiddenException('Users can only delete their own tenders');
+    if (userRole === "USER" && tender.creatorId !== userId) {
+      throw new ForbiddenException("Users can only delete their own tenders");
     }
 
     // Only allow deletion of draft tenders or by admin
-    if (tender.status !== 'DRAFT' && userRole !== 'ADMIN') {
-      throw new BadRequestException('Only draft tenders can be deleted');
+    if (tender.status !== "DRAFT" && userRole !== "ADMIN") {
+      throw new BadRequestException("Only draft tenders can be deleted");
     }
 
     await this.prismaService.tender.delete({
@@ -392,8 +441,8 @@ const tender = await this.prismaService.tender.findFirst({
     // Audit log
     await this.auditService.log({
       userId,
-      action: 'tender_deleted',
-      targetType: 'Tender',
+      action: "tender_deleted",
+      targetType: "Tender",
       targetId: tenderId,
       oldValues: tender,
       ipAddress,
@@ -401,11 +450,11 @@ const tender = await this.prismaService.tender.findFirst({
     });
 
     // Emit event
-    await this.eventService.emit('tender.deleted', {
+    await this.eventService.emit("tender.deleted", {
       tenderId,
       deletedBy: userId,
     });
 
-    return { message: 'Tender deleted successfully' };
+    return { message: "Tender deleted successfully" };
   }
 }

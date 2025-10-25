@@ -1,6 +1,6 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma/prisma.service';
-import { Request, Response, NextFunction } from 'express';
+import { Injectable, NestMiddleware } from "@nestjs/common";
+import { PrismaService } from "../../database/prisma/prisma.service";
+import { Request, Response, NextFunction } from "express";
 
 @Injectable()
 export class TenantMiddleware implements NestMiddleware {
@@ -16,22 +16,19 @@ export class TenantMiddleware implements NestMiddleware {
       // Resolve by subdomain first, fallback to id for backward compatibility
       const tenant = await this.prisma.tenant.findFirst({
         where: {
-          OR: [
-            { subdomain: tenantSlug },
-            { id: tenantSlug },
-          ],
+          OR: [{ subdomain: tenantSlug }, { id: tenantSlug }],
         },
         select: { id: true },
       });
 
       if (!tenant) {
-        return res.status(404).json({ message: 'Tenant not found' });
+        return res.status(404).json({ message: "Tenant not found" });
       }
 
       (req as any).tenantId = tenant.id;
       return next();
     } catch (err) {
-      return res.status(500).json({ message: 'Tenant resolution error' });
+      return res.status(500).json({ message: "Tenant resolution error" });
     }
   }
 }

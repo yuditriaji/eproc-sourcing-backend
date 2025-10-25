@@ -1,8 +1,19 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma/prisma.service';
-import { AuditService } from '../audit/audit.service';
-import { EventService } from '../events/event.service';
-import { POStatus, Prisma, PurchaseOrder, UserRole, PRStatus } from '@prisma/client';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from "@nestjs/common";
+import { PrismaService } from "../../database/prisma/prisma.service";
+import { AuditService } from "../audit/audit.service";
+import { EventService } from "../events/event.service";
+import {
+  POStatus,
+  Prisma,
+  PurchaseOrder,
+  UserRole,
+  PRStatus,
+} from "@prisma/client";
 
 export interface CreatePODto {
   poNumber?: string;
@@ -18,6 +29,12 @@ export interface CreatePODto {
   prId?: string;
   contractId?: string;
   vendorIds: string[];
+  // SAP org refs (optional)
+  companyCodeId?: string;
+  plantId?: string;
+  storageLocationId?: string;
+  purchasingOrgId?: string;
+  purchasingGroupId?: string;
 }
 
 export interface UpdatePODto {
@@ -47,18 +64,21 @@ export class PurchaseOrderService {
     private events: EventService,
   ) {}
 
-  async create(createPODto: CreatePODto, createdById: string): Promise<PurchaseOrder> {
+  async create(
+    createPODto: CreatePODto,
+    createdById: string,
+  ): Promise<PurchaseOrder> {
     try {
       // Generate PO number if not provided
-      const poNumber = createPODto.poNumber || await this.generatePONumber();
+      const poNumber = createPODto.poNumber || (await this.generatePONumber());
 
       // Check if PO number is unique
-const existingPO = await this.prisma.purchaseOrder.findFirst({
+      const existingPO = await this.prisma.purchaseOrder.findFirst({
         where: { poNumber },
       });
 
       if (existingPO) {
-        throw new BadRequestException('PO number already exists');
+        throw new BadRequestException("PO number already exists");
       }
 
       // Validate PR if provided
@@ -68,11 +88,13 @@ const existingPO = await this.prisma.purchaseOrder.findFirst({
         });
 
         if (!pr) {
-          throw new NotFoundException('Purchase Requisition not found');
+          throw new NotFoundException("Purchase Requisition not found");
         }
 
         if (pr.status !== PRStatus.APPROVED) {
-          throw new BadRequestException('Can only create POs from approved PRs');
+          throw new BadRequestException(
+            "Can only create POs from approved PRs",
+          );
         }
       }
 
@@ -83,16 +105,40 @@ const existingPO = await this.prisma.purchaseOrder.findFirst({
         });
 
         if (!contract) {
-          throw new NotFoundException('Contract not found');
+          throw new NotFoundException("Contract not found");
+        }
+      }
+
+      // Validate purchasing org assignment if provided
+      if ((createPODto as any).purchasingOrgId) {
+        const porgId = (createPODto as any).purchasingOrgId as string;
+        const plantId = (createPODto as any).plantId as string | undefined;
+        const companyCodeId = (createPODto as any).companyCodeId as
+          | string
+          | undefined;
+        if (plantId || companyCodeId) {
+          const assignment =
+            await this.prisma.purchasingOrgAssignment.findFirst({
+              where: {
+                purchasingOrgId: porgId,
+                ...(plantId ? { plantId } : {}),
+                ...(companyCodeId ? { companyCodeId } : {}),
+              },
+            });
+          if (!assignment)
+            throw new BadRequestException(
+              "Purchasing org is not assigned to the provided plant/company code",
+            );
         }
       }
 
       // Calculate total amount if not provided
-      const totalAmount = createPODto.totalAmount || 
-        (createPODto.amount + (createPODto.taxAmount || 0));
+      const totalAmount =
+        createPODto.totalAmount ||
+        createPODto.amount + (createPODto.taxAmount || 0);
 
       const po = await this.prisma.purchaseOrder.create({
-        data: ({
+        data: {
           poNumber,
           title: createPODto.title,
           description: createPODto.description,
@@ -105,9 +151,15 @@ const existingPO = await this.prisma.purchaseOrder.findFirst({
           terms: createPODto.terms,
           prId: createPODto.prId,
           contractId: createPODto.contractId,
+          // org refs
+          companyCodeId: (createPODto as any).companyCodeId,
+          plantId: (createPODto as any).plantId,
+          storageLocationId: (createPODto as any).storageLocationId,
+          purchasingOrgId: (createPODto as any).purchasingOrgId,
+          purchasingGroupId: (createPODto as any).purchasingGroupId,
           createdById,
           status: POStatus.DRAFT,
-        } as any),
+        } as any,
         include: {
           purchaseRequisition: true,
           contract: true,
@@ -124,8 +176,8 @@ const existingPO = await this.prisma.purchaseOrder.findFirst({
 
       // Audit log
       await this.audit.log({
-        action: 'PO_CREATED',
-        targetType: 'PurchaseOrder',
+        action: "PO_CREATED",
+        targetType: "PurchaseOrder",
         targetId: po.id,
         userId: createdById,
         oldValues: null,
@@ -133,7 +185,7 @@ const existingPO = await this.prisma.purchaseOrder.findFirst({
       });
 
       // Emit event
-      await this.events.emit('po.created', {
+      await this.events.emit("po.created", {
         poId: po.id,
         createdById,
         po,
@@ -141,10 +193,13 @@ const existingPO = await this.prisma.purchaseOrder.findFirst({
 
       return po;
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new BadRequestException('Failed to create purchase order');
+      throw new BadRequestException("Failed to create purchase order");
     }
   }
 
@@ -187,7 +242,7 @@ const existingPO = await this.prisma.purchaseOrder.findFirst({
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       this.prisma.purchaseOrder.count({ where }),
     ]);
@@ -238,40 +293,62 @@ const existingPO = await this.prisma.purchaseOrder.findFirst({
     });
 
     if (!po) {
-      throw new NotFoundException('Purchase Order not found');
+      throw new NotFoundException("Purchase Order not found");
     }
 
     return po;
   }
 
-  async update(id: string, updatePODto: UpdatePODto, userId: string): Promise<PurchaseOrder> {
+  async update(
+    id: string,
+    updatePODto: UpdatePODto,
+    userId: string,
+  ): Promise<PurchaseOrder> {
     const existingPO = await this.findOne(id);
 
     // Check if PO can be updated
-    if (existingPO.status === POStatus.COMPLETED || existingPO.status === POStatus.CANCELLED) {
-      throw new BadRequestException('Completed or cancelled POs cannot be updated');
+    if (
+      existingPO.status === POStatus.COMPLETED ||
+      existingPO.status === POStatus.CANCELLED
+    ) {
+      throw new BadRequestException(
+        "Completed or cancelled POs cannot be updated",
+      );
     }
 
     // Check if user has permission to update
     if (existingPO.createdById !== userId) {
-const user = await this.prisma.user.findFirst({ where: { id: userId } });
-      if (!user || ![UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE].includes(user.role as any)) {
-        throw new ForbiddenException('You can only update your own POs');
+      const user = await this.prisma.user.findFirst({ where: { id: userId } });
+      if (
+        !user ||
+        ![UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE].includes(
+          user.role as any,
+        )
+      ) {
+        throw new ForbiddenException("You can only update your own POs");
       }
     }
 
     // Check if status transition is valid
-    if (updatePODto.status && !this.isValidStatusTransition(existingPO.status, updatePODto.status)) {
+    if (
+      updatePODto.status &&
+      !this.isValidStatusTransition(existingPO.status, updatePODto.status)
+    ) {
       throw new BadRequestException(
-        `Invalid status transition from ${existingPO.status} to ${updatePODto.status}`
+        `Invalid status transition from ${existingPO.status} to ${updatePODto.status}`,
       );
     }
 
     // Recalculate total amount if amounts changed
     let totalAmount = updatePODto.totalAmount;
-    if ((updatePODto.amount !== undefined || updatePODto.taxAmount !== undefined) && !totalAmount) {
+    if (
+      (updatePODto.amount !== undefined ||
+        updatePODto.taxAmount !== undefined) &&
+      !totalAmount
+    ) {
       const baseAmount = updatePODto.amount || Number(existingPO.amount);
-      const taxAmount = updatePODto.taxAmount || Number(existingPO.taxAmount || 0);
+      const taxAmount =
+        updatePODto.taxAmount || Number(existingPO.taxAmount || 0);
       totalAmount = baseAmount + taxAmount;
     }
 
@@ -298,8 +375,8 @@ const user = await this.prisma.user.findFirst({ where: { id: userId } });
 
     // Audit log
     await this.audit.log({
-      action: 'PO_UPDATED',
-      targetType: 'PurchaseOrder',
+      action: "PO_UPDATED",
+      targetType: "PurchaseOrder",
       targetId: id,
       userId: userId,
       oldValues: existingPO,
@@ -308,7 +385,7 @@ const user = await this.prisma.user.findFirst({ where: { id: userId } });
 
     // Emit event for status changes
     if (updatePODto.status && updatePODto.status !== existingPO.status) {
-      await this.events.emit('po.status_changed', {
+      await this.events.emit("po.status_changed", {
         poId: id,
         userId,
         oldStatus: existingPO.status,
@@ -320,21 +397,37 @@ const user = await this.prisma.user.findFirst({ where: { id: userId } });
     return updatedPO;
   }
 
-  async approve(id: string, approvePODto: ApprovePODto, approverId: string): Promise<PurchaseOrder> {
+  async approve(
+    id: string,
+    approvePODto: ApprovePODto,
+    approverId: string,
+  ): Promise<PurchaseOrder> {
     const po = await this.findOne(id);
 
     // Check if PO can be approved
     if (po.status !== POStatus.DRAFT) {
-      throw new BadRequestException('Only draft POs can be approved');
+      throw new BadRequestException("Only draft POs can be approved");
     }
 
     // Check if user has approval rights
-const approver = await this.prisma.user.findFirst({ where: { id: approverId } });
-    if (!approver || ![UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.APPROVER].includes(approver.role as any)) {
-      throw new ForbiddenException('You do not have permission to approve POs');
+    const approver = await this.prisma.user.findFirst({
+      where: { id: approverId },
+    });
+    if (
+      !approver ||
+      ![
+        UserRole.ADMIN,
+        UserRole.MANAGER,
+        UserRole.FINANCE,
+        UserRole.APPROVER,
+      ].includes(approver.role as any)
+    ) {
+      throw new ForbiddenException("You do not have permission to approve POs");
     }
 
-    const newStatus = approvePODto.approved ? POStatus.APPROVED : POStatus.CANCELLED;
+    const newStatus = approvePODto.approved
+      ? POStatus.APPROVED
+      : POStatus.CANCELLED;
 
     const updatedPO = await this.prisma.purchaseOrder.update({
       where: { id },
@@ -360,8 +453,8 @@ const approver = await this.prisma.user.findFirst({ where: { id: approverId } })
 
     // Audit log
     await this.audit.log({
-      action: approvePODto.approved ? 'PO_APPROVED' : 'PO_REJECTED',
-      targetType: 'PurchaseOrder',
+      action: approvePODto.approved ? "PO_APPROVED" : "PO_REJECTED",
+      targetType: "PurchaseOrder",
       targetId: id,
       userId: approverId,
       oldValues: po,
@@ -369,29 +462,38 @@ const approver = await this.prisma.user.findFirst({ where: { id: approverId } })
     });
 
     // Emit event
-    await this.events.emit(approvePODto.approved ? 'po.approved' : 'po.rejected', {
-      poId: id,
-      approverId,
-      po: updatedPO,
-      comments: approvePODto.comments,
-    });
+    await this.events.emit(
+      approvePODto.approved ? "po.approved" : "po.rejected",
+      {
+        poId: id,
+        approverId,
+        po: updatedPO,
+        comments: approvePODto.comments,
+      },
+    );
 
     return updatedPO;
   }
 
-  async addVendors(poId: string, vendorIds: string[], userId: string): Promise<void> {
+  async addVendors(
+    poId: string,
+    vendorIds: string[],
+    userId: string,
+  ): Promise<void> {
     const po = await this.findOne(poId);
 
     // Check if PO is in a state where vendors can be added
     if (po.status === POStatus.COMPLETED || po.status === POStatus.CANCELLED) {
-      throw new BadRequestException('Cannot add vendors to a completed or cancelled PO');
+      throw new BadRequestException(
+        "Cannot add vendors to a completed or cancelled PO",
+      );
     }
 
     // Add vendors
     const poVendors = vendorIds.map((vendorId, index) => ({
       poId,
       vendorId,
-      role: index === 0 ? 'PRIMARY' as const : 'SECONDARY' as const, // First vendor is primary
+      role: index === 0 ? ("PRIMARY" as const) : ("SECONDARY" as const), // First vendor is primary
     }));
 
     await this.prisma.pOVendor.createMany({
@@ -401,8 +503,8 @@ const approver = await this.prisma.user.findFirst({ where: { id: approverId } })
 
     // Audit log
     await this.audit.log({
-      action: 'PO_VENDORS_ADDED',
-      targetType: 'PurchaseOrder',
+      action: "PO_VENDORS_ADDED",
+      targetType: "PurchaseOrder",
       targetId: poId,
       userId: userId,
       oldValues: null,
@@ -410,17 +512,21 @@ const approver = await this.prisma.user.findFirst({ where: { id: approverId } })
     });
 
     // Emit event
-    await this.events.emit('po.vendors_added', {
+    await this.events.emit("po.vendors_added", {
       poId,
       userId,
       vendorIds,
     });
   }
 
-  async removeVendor(poId: string, vendorId: string, userId: string): Promise<void> {
+  async removeVendor(
+    poId: string,
+    vendorId: string,
+    userId: string,
+  ): Promise<void> {
     await this.findOne(poId); // Check if PO exists
 
-await this.prisma.pOVendor.deleteMany({
+    await this.prisma.pOVendor.deleteMany({
       where: {
         poId,
         vendorId,
@@ -429,8 +535,8 @@ await this.prisma.pOVendor.deleteMany({
 
     // Audit log
     await this.audit.log({
-      action: 'PO_VENDOR_REMOVED',
-      targetType: 'PurchaseOrder',
+      action: "PO_VENDOR_REMOVED",
+      targetType: "PurchaseOrder",
       targetId: poId,
       userId: userId,
       oldValues: null,
@@ -443,14 +549,17 @@ await this.prisma.pOVendor.deleteMany({
 
     // Check if PO can be deleted
     if (po.status !== POStatus.DRAFT) {
-      throw new BadRequestException('Only draft POs can be deleted');
+      throw new BadRequestException("Only draft POs can be deleted");
     }
 
     // Check if user has permission
     if (po.createdById !== userId) {
-const user = await this.prisma.user.findFirst({ where: { id: userId } });
-      if (!user || ![UserRole.ADMIN, UserRole.MANAGER].includes(user.role as any)) {
-        throw new ForbiddenException('You can only delete your own POs');
+      const user = await this.prisma.user.findFirst({ where: { id: userId } });
+      if (
+        !user ||
+        ![UserRole.ADMIN, UserRole.MANAGER].includes(user.role as any)
+      ) {
+        throw new ForbiddenException("You can only delete your own POs");
       }
     }
 
@@ -462,8 +571,8 @@ const user = await this.prisma.user.findFirst({ where: { id: userId } });
 
     // Audit log
     await this.audit.log({
-      action: 'PO_DELETED',
-      targetType: 'PurchaseOrder',
+      action: "PO_DELETED",
+      targetType: "PurchaseOrder",
       targetId: id,
       userId: userId,
       oldValues: po,
@@ -471,7 +580,7 @@ const user = await this.prisma.user.findFirst({ where: { id: userId } });
     });
 
     // Emit event
-    await this.events.emit('po.deleted', {
+    await this.events.emit("po.deleted", {
       poId: id,
       userId,
       po,
@@ -493,10 +602,18 @@ const user = await this.prisma.user.findFirst({ where: { id: userId } });
       totalValue,
     ] = await Promise.all([
       this.prisma.purchaseOrder.count({ where }),
-      this.prisma.purchaseOrder.count({ where: { ...where, status: POStatus.DRAFT } }),
-      this.prisma.purchaseOrder.count({ where: { ...where, status: POStatus.APPROVED } }),
-      this.prisma.purchaseOrder.count({ where: { ...where, status: POStatus.IN_PROGRESS } }),
-      this.prisma.purchaseOrder.count({ where: { ...where, status: POStatus.COMPLETED } }),
+      this.prisma.purchaseOrder.count({
+        where: { ...where, status: POStatus.DRAFT },
+      }),
+      this.prisma.purchaseOrder.count({
+        where: { ...where, status: POStatus.APPROVED },
+      }),
+      this.prisma.purchaseOrder.count({
+        where: { ...where, status: POStatus.IN_PROGRESS },
+      }),
+      this.prisma.purchaseOrder.count({
+        where: { ...where, status: POStatus.COMPLETED },
+      }),
       this.prisma.purchaseOrder.aggregate({
         where: { ...where, totalAmount: { not: null } },
         _sum: { totalAmount: true },
@@ -513,7 +630,10 @@ const user = await this.prisma.user.findFirst({ where: { id: userId } });
     };
   }
 
-  private isValidStatusTransition(currentStatus: POStatus, newStatus: POStatus): boolean {
+  private isValidStatusTransition(
+    currentStatus: POStatus,
+    newStatus: POStatus,
+  ): boolean {
     const validTransitions: Record<POStatus, POStatus[]> = {
       [POStatus.DRAFT]: [POStatus.APPROVED, POStatus.CANCELLED],
       [POStatus.APPROVED]: [POStatus.IN_PROGRESS, POStatus.CANCELLED],
@@ -528,12 +648,12 @@ const user = await this.prisma.user.findFirst({ where: { id: userId } });
 
   async generatePONumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const month = String(new Date().getMonth() + 1).padStart(2, '0');
-    
+    const month = String(new Date().getMonth() + 1).padStart(2, "0");
+
     // Get the count of POs this month
     const startOfMonth = new Date(year, new Date().getMonth(), 1);
     const endOfMonth = new Date(year, new Date().getMonth() + 1, 0);
-    
+
     const count = await this.prisma.purchaseOrder.count({
       where: {
         createdAt: {
@@ -543,14 +663,22 @@ const user = await this.prisma.user.findFirst({ where: { id: userId } });
       },
     });
 
-    const sequence = String(count + 1).padStart(4, '0');
+    const sequence = String(count + 1).padStart(4, "0");
     return `PO-${year}${month}-${sequence}`;
   }
 
   async getPendingApprovalsForUser(userId: string): Promise<PurchaseOrder[]> {
     // Get user role to determine what POs they can approve
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || ![UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.APPROVER].includes(user.role as any)) {
+    if (
+      !user ||
+      ![
+        UserRole.ADMIN,
+        UserRole.MANAGER,
+        UserRole.FINANCE,
+        UserRole.APPROVER,
+      ].includes(user.role as any)
+    ) {
       return [];
     }
 
@@ -559,11 +687,12 @@ const user = await this.prisma.user.findFirst({ where: { id: userId } });
       where: {
         status: POStatus.DRAFT,
         deletedAt: null,
-        ...(user.role === UserRole.MANAGER && user.department && {
-          creator: {
-            department: user.department,
-          },
-        }),
+        ...(user.role === UserRole.MANAGER &&
+          user.department && {
+            creator: {
+              department: user.department,
+            },
+          }),
       },
       include: {
         creator: true,
@@ -575,11 +704,15 @@ const user = await this.prisma.user.findFirst({ where: { id: userId } });
           },
         },
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: "asc" },
     });
   }
 
-  async createFromPR(prId: string, vendorIds: string[], userId: string): Promise<PurchaseOrder> {
+  async createFromPR(
+    prId: string,
+    vendorIds: string[],
+    userId: string,
+  ): Promise<PurchaseOrder> {
     const pr = await this.prisma.purchaseRequisition.findFirst({
       where: { id: prId, deletedAt: null },
       include: {
@@ -589,11 +722,11 @@ const user = await this.prisma.user.findFirst({ where: { id: userId } });
     });
 
     if (!pr) {
-      throw new NotFoundException('Purchase Requisition not found');
+      throw new NotFoundException("Purchase Requisition not found");
     }
 
     if (pr.status !== PRStatus.APPROVED) {
-      throw new BadRequestException('Can only create POs from approved PRs');
+      throw new BadRequestException("Can only create POs from approved PRs");
     }
 
     const createPODto: CreatePODto = {

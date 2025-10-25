@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma/prisma.service';
-import * as winston from 'winston';
-import { TenantContext } from '../../common/tenant/tenant-context';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../database/prisma/prisma.service";
+import * as winston from "winston";
+import { TenantContext } from "../../common/tenant/tenant-context";
 
 export interface AuditLogData {
   userId?: string;
@@ -19,23 +19,26 @@ export interface AuditLogData {
 export class AuditService {
   private logger: winston.Logger;
 
-  constructor(private prismaService: PrismaService, private readonly tenantContext: TenantContext) {
+  constructor(
+    private prismaService: PrismaService,
+    private readonly tenantContext: TenantContext,
+  ) {
     this.logger = winston.createLogger({
-      level: 'info',
+      level: "info",
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
-        winston.format.json()
+        winston.format.json(),
       ),
       transports: [
         new winston.transports.File({
-          filename: 'logs/audit.log',
-          level: 'info',
+          filename: "logs/audit.log",
+          level: "info",
         }),
         new winston.transports.Console({
-          format: winston.format.simple()
-        })
-      ]
+          format: winston.format.simple(),
+        }),
+      ],
     });
   }
 
@@ -45,7 +48,7 @@ export class AuditService {
 
       if (!tenantId) {
         // Avoid DB error if tenant context is missing (e.g., early auth flows)
-        this.logger.warn('Skipping DB audit due to missing tenantId', {
+        this.logger.warn("Skipping DB audit due to missing tenantId", {
           auditData: data,
         });
       } else {
@@ -66,13 +69,13 @@ export class AuditService {
       }
 
       // Also log to file system
-      this.logger.info('Audit log created', {
+      this.logger.info("Audit log created", {
         ...data,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
       // If database logging fails, at least log to file
-      this.logger.error('Failed to create audit log in database', {
+      this.logger.error("Failed to create audit log in database", {
         error: error.message,
         auditData: data,
       });
@@ -82,7 +85,7 @@ export class AuditService {
   async getUserAuditHistory(userId: string, limit = 100, offset = 0) {
     return this.prismaService.auditLog.findMany({
       where: { userId },
-      orderBy: { timestamp: 'desc' },
+      orderBy: { timestamp: "desc" },
       take: limit,
       skip: offset,
       include: {
@@ -118,7 +121,7 @@ export class AuditService {
 
     return this.prismaService.auditLog.findMany({
       where,
-      orderBy: { timestamp: 'desc' },
+      orderBy: { timestamp: "desc" },
       take: filters?.limit || 100,
       skip: filters?.offset || 0,
       include: {

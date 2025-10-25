@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma/prisma.service';
-import * as bcrypt from 'bcryptjs';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../../database/prisma/prisma.service";
+import * as bcrypt from "bcryptjs";
 
 @Injectable()
 export class TenantService {
@@ -10,10 +10,7 @@ export class TenantService {
     if (!slugOrId) return undefined;
     const tenant = await this.prisma.tenant.findFirst({
       where: {
-        OR: [
-          { subdomain: slugOrId },
-          { id: slugOrId },
-        ],
+        OR: [{ subdomain: slugOrId }, { id: slugOrId }],
       },
       select: { id: true },
     });
@@ -22,7 +19,7 @@ export class TenantService {
 
   async getTenantIdOrThrow(slugOrId?: string): Promise<string> {
     const id = await this.resolveTenantId(slugOrId);
-    if (!id) throw new NotFoundException('Tenant not found');
+    if (!id) throw new NotFoundException("Tenant not found");
     return id;
   }
 
@@ -30,13 +27,19 @@ export class TenantService {
     name: string;
     subdomain: string;
     config?: any;
-    admin: { email: string; username?: string; password: string; firstName?: string; lastName?: string };
+    admin: {
+      email: string;
+      username?: string;
+      password: string;
+      firstName?: string;
+      lastName?: string;
+    };
   }) {
     const tenant = await this.prisma.tenant.create({
       data: {
         name: input.name,
         subdomain: input.subdomain,
-        residencyTag: 'us',
+        residencyTag: "us",
         config: input.config ?? null,
       },
       select: { id: true, name: true, subdomain: true },
@@ -49,16 +52,14 @@ export class TenantService {
       data: {
         tenantId: tenant.id,
         email: input.admin.email,
-        username: input.admin.username ?? input.admin.email.split('@')[0],
+        username: input.admin.username ?? input.admin.email.split("@")[0],
         password: hashed,
-        firstName: input.admin.firstName ?? 'Tenant',
-        lastName: input.admin.lastName ?? 'Admin',
-        role: 'ADMIN' as any,
+        firstName: input.admin.firstName ?? "Tenant",
+        lastName: input.admin.lastName ?? "Admin",
+        role: "ADMIN" as any,
         isActive: true,
         isVerified: true,
-        abilities: [
-          { actions: ['manage'], subjects: ['all'] },
-        ] as any,
+        abilities: [{ actions: ["manage"], subjects: ["all"] }] as any,
       },
       select: { id: true, email: true, username: true, role: true },
     });

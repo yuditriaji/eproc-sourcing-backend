@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { TenantContext } from '../../common/tenant/tenant-context';
-import { PrismaService } from '../../database/prisma/prisma.service';
+import { Injectable } from "@nestjs/common";
+import { TenantContext } from "../../common/tenant/tenant-context";
+import { PrismaService } from "../../database/prisma/prisma.service";
 
 @Injectable()
 export class EventService {
@@ -16,7 +16,10 @@ export class EventService {
     let residencyTag: string | undefined = undefined;
     if (tenantId) {
       try {
-        const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { residencyTag: true } });
+        const tenant = await this.prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { residencyTag: true },
+        });
         residencyTag = tenant?.residencyTag;
       } catch {}
     }

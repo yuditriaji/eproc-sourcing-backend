@@ -1,7 +1,7 @@
 # Product Requirements Document (PRD): Refactor Prisma Schema for SAP-Inspired Agile Scalability
 
 ## Document Metadata
-- **Version**: 1.1
+- **Version**: 1.2
 - **Date**: October 23, 2025
 - **Author**: Grok (xAI Assistant)
 - **Target Executor**: WARP AI (Coding Agent)
@@ -40,25 +40,27 @@ The current schema (e.g., flat Tender/PO models per technical.md) lacks SAP-like
      - `RBACConfig`: Hierarchy enabler (e.g., roleId FK to Role Master; orgLevel: Int; permissions: Json { actions: ['APPROVE_PR'] })—tied to ProcessConfig for process-specific RBAC (e.g., PG-level BUYER for Djarum CCs).
    - Integration & Flexibility: Key Figures (e.g., processConfigId in all Headers) ensure configs propagate: On tenant provision, auto-link Masters (e.g., create OrgUnits from TenantConfig Json); Transactions inherit rules (e.g., PO numbering via SystemConfig + CC OrgUnit). Applicable to diverse processes: Hierarchical (Djarum: Multi-level via orgStructure) vs. flat (SME: Single step).
 
-2. **Master Tables Layer (Driven by Configurations)**
-   - **Core Role**: Static data auto-derived/config-scoped—e.g., OrgUnits generated from TenantConfig; all reference configId for flexibility (e.g., PGs per CC for Djarum).
-   - Core Tables:
-     - `Tenant` (enhanced): configId: FK to TenantConfig (mandatory); residencyTag: String (for future sharding)—basis for company-wide applicability.
-     - `OrgUnit`: Hierarchy auto-built from configs (e.g., id, tenantId, parentId: Self-FK, level: Int (computed from TenantConfig), name: String, type: Enum['COMPANY_CODE', 'PURCHASING_GROUP'], companyCode?: String @unique([tenantId, companyCode]), pgCode?: String @unique([tenantId, pgCode]) )—e.g., Djarum: 5 child CC OrgUnits + PG sub-nodes.
-     - `User`: orgUnitId: FK (to OrgUnit, scoped by config level); roleId: FK to Role (via RBACConfig for process ties).
-     - `Role`: configId: FK to RBACConfig; enum-like (ADMIN, BUYER) with permissions Json—flexible per company (e.g., Djarum: CC-specific overrides).
-     - `Vendor`: tenantId, orgUnitId (FK to OrgUnit for PG/CC assignment); status: Enum—linked via config for process eligibility.
-     - `Currency`, `Category` (unchanged, but add configId FK for tenant overrides, e.g., CC-specific rates).
+- **Master Tables Layer (Driven by Configurations)**
+  - **Core Role**: Static data auto-derived/config-scoped—e.g., SAP-style org masters created per tenant; all transactions can reference them for routing/validation.
+  - Core Tables:
+    - `Tenant` (enhanced): residencyTag, config Json; back-relations to new org masters.
+    - SAP Org Masters (normalized):
+      - `CompanyCode` (tenantId, code, name) → `Plant` (companyCodeId, code, name) → `StorageLocation` (plantId, code, name).
+      - `PurchasingOrg` (tenantId, code, name) → `PurchasingGroup` (purchasingOrgId, code, name).
+      - `PurchasingOrgAssignment` (purchasingOrgId, companyCodeId? | plantId?) to declare valid PORG coverage.
+    - `User`: may be scoped/filtered by org assignments.
+    - `Role`: RBAC config as before.
+    - `Vendor`: now supports direct optional FKs: companyCodeId, plantId, storageLocationId, purchasingOrgId, purchasingGroupId.
+    - `Currency`, etc. unchanged.
 
-3. **Transaction Tables Layer (Scoped and Driven by Configurations)**
-   - **Core Role**: Dynamic data always validated against configs—e.g., Headers require processConfigId (Key Figure); Items inherit rules (e.g., validation per step Json).
-   - Core Splits (per BUSINESS_PROCESS.md, config-applicable):
-     - Tender: `TenderHeader` (id, tenantId, processConfigId: FK (mandatory), orgUnitId: FK (e.g., PG for Djarum), status: Enum, totalEstValue: Decimal) / `TenderItem` (headerId: FK, requirement: Json, criteriaWeight: Decimal—validated against ProcessConfig.steps).
-     - Bid: `BidHeader` (id, tenantId, tenderHeaderId: FK, vendorId: FK (must match orgUnit), totalScore: Decimal) / `BidItem` (headerId: FK, proposal: Json, score: Decimal—computed per config criteria).
-     - Procurement: `PRHeader` (id, tenantId, processConfigId: FK, contractId: FK, orgUnitId: FK (CC/PG), approvalChain: Json (built from RBACConfig)) / `PRItem` (headerId: FK, itemDesc: String, qty: Decimal—threshold-checked via TenantConfig).
-     - PO: `POHeader` (poNumber: String (generated via SystemConfig + orgUnit.companyCode/pgCode), processConfigId: FK) / `POItem` (headerId: FK, link to PRItem).
-     - GR/Invoice/Payment: Similar splits; e.g., `InvoiceHeader` with configId for three-way match rules.
-   - AuditLog: Enhanced with keyFigure (e.g., configId: FK, activityBasis: String "ProcessConfig Step 2") for traceable, config-driven changes.
+- **Transaction Tables Layer (Scoped and Driven by Configurations)**
+  - **Core Role**: Dynamic data validated against configs and SAP org masters.
+  - Core Splits (per BUSINESS_PROCESS.md):
+    - Tender: header with optional org refs: companyCodeId, plantId, storageLocationId, purchasingOrgId, purchasingGroupId; items unchanged.
+    - PR: header accepts the same org refs; approval chain derives from ProcessConfig and may check PORG assignment vs Plant/CompanyCode.
+    - PO: header accepts/validates the same org refs (PORG must be assigned to Plant or CompanyCode via PurchasingOrgAssignment). Numbering can include CC/Plant/PG codes.
+    - Downstream (GR/Invoice/Payment): unchanged for now.
+  - AuditLog: unchanged.
 
 4. **Migration & Enforcement**
    - Prisma Migration: Split existing models; backfill configId defaults from TenantConfig (e.g., assign base ProcessConfig to legacy data).
@@ -108,12 +110,16 @@ The current schema (e.g., flat Tender/PO models per technical.md) lacks SAP-like
 - **Json Flexibility**: All configs use schema-validated Json (e.g., steps: [{ name: string, condition: { keyFigure: string, op: 'gt', value: number } }])—parsed for company-specific logic.
 
 ### API Changes
-- Config: POST/GET/PUT /:tenant/config/basis (CRUD with propagation); e.g., body: { processType: 'TENDER', jsonSteps: [...] }.
-- Master: POST /:tenant/org-units/bulk (from config Json, e.g., for Djarum CCs).
-- Transaction: All POSTs require configId in body; responses embed basis (e.g., { header: ..., configBasis: { steps: [...] } }).
-- Swagger: Tags 'Config Basis', 'Config-Driven Master', 'Config-Scoped Transaction'; examples for Djarum/SME variants.
+- Config: POST/GET/PUT /:tenant/config/basis (as before).
+- Org Structure (new): CRUD endpoints under /:tenant/org
+  - company-codes, plants, storage-locations, purchasing-orgs, purchasing-groups, porg-assignments.
+- Transactions: Tender/PR/PO create/update payloads may include org refs: companyCodeId, plantId, storageLocationId, purchasingOrgId, purchasingGroupId; services validate PORG assignment when provided.
+- Swagger: add 'Org Structure' tag with examples.
 
 ## Implementation Plan for WARP AI
+
+Documentation
+- See docs/CONFIG_BASIS.md for end-to-end guidance (configuration-first model), including API payloads, examples, and flows (Djarum vs. SME variants). 
 1. **Preparation (1 day)**: Audit schema vs. technical.md; draft migration with config backfill; define Json schemas (Zod).
 2. **Schema Refactor (2-3 days)**: Build config layer as basis; add FKs to Masters/Transactions; migrate splits with basis assignment.
 3. **Service/Guard Updates (2 days)**: Centralize ConfigService; enforce basis validation; add hierarchy resolver.

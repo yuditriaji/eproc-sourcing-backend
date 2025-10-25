@@ -1,8 +1,13 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
-import { Observable, from } from 'rxjs';
-import { TenantContext } from './tenant-context';
-import { PrismaService } from '../../database/prisma/prisma.service';
-import { mergeMap } from 'rxjs/operators';
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+} from "@nestjs/common";
+import { Observable, from } from "rxjs";
+import { TenantContext } from "./tenant-context";
+import { PrismaService } from "../../database/prisma/prisma.service";
+import { mergeMap } from "rxjs/operators";
 
 @Injectable()
 export class DbTenantSessionInterceptor implements NestInterceptor {
@@ -21,7 +26,10 @@ export class DbTenantSessionInterceptor implements NestInterceptor {
     // Note: Without wrapping requests in a single transaction, connection reuse is not guaranteed.
     // For stricter guarantees, migrate to an interceptor that uses interactive transactions.
     return from(
-      this.prisma.$executeRawUnsafe(`select set_config('app.tenant_id', $1, true)`, tenantId)
+      this.prisma.$executeRawUnsafe(
+        `select set_config('app.tenant_id', $1, true)`,
+        tenantId,
+      ),
     ).pipe(mergeMap(() => next.handle()));
   }
 }

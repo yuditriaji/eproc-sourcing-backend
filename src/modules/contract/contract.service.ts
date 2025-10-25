@@ -1,8 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma/prisma.service';
-import { AuditService } from '../audit/audit.service';
-import { EventService } from '../events/event.service';
-import { ContractStatus, Prisma, Contract, User } from '@prisma/client';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { PrismaService } from "../../database/prisma/prisma.service";
+import { AuditService } from "../audit/audit.service";
+import { EventService } from "../events/event.service";
+import { ContractStatus, Prisma, Contract, User } from "@prisma/client";
 
 export interface CreateContractDto {
   contractNumber: string;
@@ -37,19 +41,22 @@ export class ContractService {
     private events: EventService,
   ) {}
 
-  async create(createContractDto: CreateContractDto, ownerId: string): Promise<Contract> {
+  async create(
+    createContractDto: CreateContractDto,
+    ownerId: string,
+  ): Promise<Contract> {
     try {
       // Check if contract number is unique
-const existingContract = await this.prisma.contract.findFirst({
-      where: { contractNumber: createContractDto.contractNumber },
-    });
+      const existingContract = await this.prisma.contract.findFirst({
+        where: { contractNumber: createContractDto.contractNumber },
+      });
 
       if (existingContract) {
-        throw new BadRequestException('Contract number already exists');
+        throw new BadRequestException("Contract number already exists");
       }
 
       const contract = await this.prisma.contract.create({
-        data: ({
+        data: {
           contractNumber: createContractDto.contractNumber,
           title: createContractDto.title,
           description: createContractDto.description,
@@ -61,7 +68,7 @@ const existingContract = await this.prisma.contract.findFirst({
           deliverables: createContractDto.deliverables,
           ownerId,
           status: ContractStatus.DRAFT,
-        } as any),
+        } as any,
         include: {
           owner: true,
           currency: true,
@@ -73,14 +80,21 @@ const existingContract = await this.prisma.contract.findFirst({
         },
       });
       // Add vendors if provided
-      if (createContractDto.vendorIds && createContractDto.vendorIds.length > 0) {
-        await this.addVendors(contract.id, createContractDto.vendorIds, ownerId);
+      if (
+        createContractDto.vendorIds &&
+        createContractDto.vendorIds.length > 0
+      ) {
+        await this.addVendors(
+          contract.id,
+          createContractDto.vendorIds,
+          ownerId,
+        );
       }
 
       // Audit log
       await this.audit.log({
-        action: 'CREATE',
-        targetType: 'Contract',
+        action: "CREATE",
+        targetType: "Contract",
         targetId: contract.id,
         userId: ownerId,
         oldValues: null,
@@ -88,7 +102,7 @@ const existingContract = await this.prisma.contract.findFirst({
       });
 
       // Emit event
-      await this.events.emit('contract.created', {
+      await this.events.emit("contract.created", {
         contractId: contract.id,
         ownerId,
         contract,
@@ -99,7 +113,9 @@ const existingContract = await this.prisma.contract.findFirst({
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(`Failed to create contract: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to create contract: ${error.message}`,
+      );
     }
   }
 
@@ -137,7 +153,7 @@ const existingContract = await this.prisma.contract.findFirst({
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       this.prisma.contract.count({ where }),
     ]);
@@ -180,19 +196,29 @@ const existingContract = await this.prisma.contract.findFirst({
     });
 
     if (!contract) {
-      throw new NotFoundException('Contract not found');
+      throw new NotFoundException("Contract not found");
     }
 
     return contract;
   }
 
-  async update(id: string, updateContractDto: UpdateContractDto, userId: string): Promise<Contract> {
+  async update(
+    id: string,
+    updateContractDto: UpdateContractDto,
+    userId: string,
+  ): Promise<Contract> {
     const existingContract = await this.findOne(id);
 
     // Check if status transition is valid
-    if (updateContractDto.status && !this.isValidStatusTransition(existingContract.status, updateContractDto.status)) {
+    if (
+      updateContractDto.status &&
+      !this.isValidStatusTransition(
+        existingContract.status,
+        updateContractDto.status,
+      )
+    ) {
       throw new BadRequestException(
-        `Invalid status transition from ${existingContract.status} to ${updateContractDto.status}`
+        `Invalid status transition from ${existingContract.status} to ${updateContractDto.status}`,
       );
     }
 
@@ -215,8 +241,8 @@ const existingContract = await this.prisma.contract.findFirst({
 
     // Audit log
     await this.audit.log({
-      action: 'UPDATE',
-      targetType: 'Contract',
+      action: "UPDATE",
+      targetType: "Contract",
       targetId: id,
       userId: userId,
       oldValues: existingContract,
@@ -224,8 +250,11 @@ const existingContract = await this.prisma.contract.findFirst({
     });
 
     // Emit event for status changes
-    if (updateContractDto.status && updateContractDto.status !== existingContract.status) {
-      await this.events.emit('contract.status_changed', {
+    if (
+      updateContractDto.status &&
+      updateContractDto.status !== existingContract.status
+    ) {
+      await this.events.emit("contract.status_changed", {
         contractId: id,
         userId,
         oldStatus: existingContract.status,
@@ -237,19 +266,28 @@ const existingContract = await this.prisma.contract.findFirst({
     return updatedContract;
   }
 
-  async addVendors(contractId: string, vendorIds: string[], userId: string): Promise<void> {
+  async addVendors(
+    contractId: string,
+    vendorIds: string[],
+    userId: string,
+  ): Promise<void> {
     const contract = await this.findOne(contractId);
 
     // Check if contract is in a state where vendors can be added
-    if (contract.status === ContractStatus.COMPLETED || contract.status === ContractStatus.CLOSED) {
-      throw new BadRequestException('Cannot add vendors to a completed or closed contract');
+    if (
+      contract.status === ContractStatus.COMPLETED ||
+      contract.status === ContractStatus.CLOSED
+    ) {
+      throw new BadRequestException(
+        "Cannot add vendors to a completed or closed contract",
+      );
     }
 
     // Add vendors
     const contractVendors = vendorIds.map((vendorId, index) => ({
       contractId,
       vendorId,
-      role: index === 0 ? 'PRIMARY' as const : 'SECONDARY' as const, // First vendor is primary
+      role: index === 0 ? ("PRIMARY" as const) : ("SECONDARY" as const), // First vendor is primary
     }));
 
     await this.prisma.contractVendor.createMany({
@@ -259,8 +297,8 @@ const existingContract = await this.prisma.contract.findFirst({
 
     // Audit log
     await this.audit.log({
-      action: 'UPDATE',
-      targetType: 'Contract',
+      action: "UPDATE",
+      targetType: "Contract",
       targetId: contractId,
       userId: userId,
       oldValues: null,
@@ -268,17 +306,21 @@ const existingContract = await this.prisma.contract.findFirst({
     });
 
     // Emit event
-    await this.events.emit('contract.vendors_added', {
+    await this.events.emit("contract.vendors_added", {
       contractId,
       userId,
       vendorIds,
     });
   }
 
-  async removeVendor(contractId: string, vendorId: string, userId: string): Promise<void> {
+  async removeVendor(
+    contractId: string,
+    vendorId: string,
+    userId: string,
+  ): Promise<void> {
     await this.findOne(contractId); // Check if contract exists
 
-await this.prisma.contractVendor.deleteMany({
+    await this.prisma.contractVendor.deleteMany({
       where: {
         contractId,
         vendorId,
@@ -287,8 +329,8 @@ await this.prisma.contractVendor.deleteMany({
 
     // Audit log
     await this.audit.log({
-      action: 'UPDATE',
-      targetType: 'Contract',
+      action: "UPDATE",
+      targetType: "Contract",
       targetId: contractId,
       userId: userId,
       oldValues: null,
@@ -301,7 +343,7 @@ await this.prisma.contractVendor.deleteMany({
 
     // Check if contract can be deleted
     if (contract.status !== ContractStatus.DRAFT) {
-      throw new BadRequestException('Only draft contracts can be deleted');
+      throw new BadRequestException("Only draft contracts can be deleted");
     }
 
     // Soft delete
@@ -312,8 +354,8 @@ await this.prisma.contractVendor.deleteMany({
 
     // Audit log
     await this.audit.log({
-      action: 'DELETE',
-      targetType: 'Contract',
+      action: "DELETE",
+      targetType: "Contract",
       targetId: id,
       userId: userId,
       oldValues: contract,
@@ -321,7 +363,7 @@ await this.prisma.contractVendor.deleteMany({
     });
 
     // Emit event
-    await this.events.emit('contract.deleted', {
+    await this.events.emit("contract.deleted", {
       contractId: id,
       userId,
       contract,
@@ -342,9 +384,15 @@ await this.prisma.contractVendor.deleteMany({
       totalValue,
     ] = await Promise.all([
       this.prisma.contract.count({ where }),
-      this.prisma.contract.count({ where: { ...where, status: ContractStatus.DRAFT } }),
-      this.prisma.contract.count({ where: { ...where, status: ContractStatus.IN_PROGRESS } }),
-      this.prisma.contract.count({ where: { ...where, status: ContractStatus.COMPLETED } }),
+      this.prisma.contract.count({
+        where: { ...where, status: ContractStatus.DRAFT },
+      }),
+      this.prisma.contract.count({
+        where: { ...where, status: ContractStatus.IN_PROGRESS },
+      }),
+      this.prisma.contract.count({
+        where: { ...where, status: ContractStatus.COMPLETED },
+      }),
       this.prisma.contract.aggregate({
         where: { ...where, totalAmount: { not: null } },
         _sum: { totalAmount: true },
@@ -360,10 +408,16 @@ await this.prisma.contractVendor.deleteMany({
     };
   }
 
-  private isValidStatusTransition(currentStatus: ContractStatus, newStatus: ContractStatus): boolean {
+  private isValidStatusTransition(
+    currentStatus: ContractStatus,
+    newStatus: ContractStatus,
+  ): boolean {
     const validTransitions: Record<ContractStatus, ContractStatus[]> = {
       [ContractStatus.DRAFT]: [ContractStatus.IN_PROGRESS],
-      [ContractStatus.IN_PROGRESS]: [ContractStatus.COMPLETED, ContractStatus.TERMINATED],
+      [ContractStatus.IN_PROGRESS]: [
+        ContractStatus.COMPLETED,
+        ContractStatus.TERMINATED,
+      ],
       [ContractStatus.COMPLETED]: [ContractStatus.CLOSED],
       [ContractStatus.CLOSED]: [],
       [ContractStatus.TERMINATED]: [],
@@ -374,12 +428,12 @@ await this.prisma.contractVendor.deleteMany({
 
   async generateContractNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const month = String(new Date().getMonth() + 1).padStart(2, '0');
-    
+    const month = String(new Date().getMonth() + 1).padStart(2, "0");
+
     // Get the count of contracts this month
     const startOfMonth = new Date(year, new Date().getMonth(), 1);
     const endOfMonth = new Date(year, new Date().getMonth() + 1, 0);
-    
+
     const count = await this.prisma.contract.count({
       where: {
         createdAt: {
@@ -389,7 +443,7 @@ await this.prisma.contractVendor.deleteMany({
       },
     });
 
-    const sequence = String(count + 1).padStart(4, '0');
+    const sequence = String(count + 1).padStart(4, "0");
     return `CON-${year}${month}-${sequence}`;
   }
 }
