@@ -13,6 +13,7 @@ export interface AuditLogData {
   ipAddress?: string;
   userAgent?: string;
   metadata?: any;
+  budgetKeyFigure?: any; // For budget-related audit logs
 }
 
 @Injectable()
@@ -64,6 +65,7 @@ export class AuditService {
             newValues: data.newValues,
             ipAddress: data.ipAddress,
             userAgent: data.userAgent,
+            budgetKeyFigure: data.budgetKeyFigure,
           },
         });
       }

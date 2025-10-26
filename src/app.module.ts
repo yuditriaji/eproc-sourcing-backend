@@ -75,6 +75,10 @@ import { TransactionsService } from "./modules/transactions/transactions.service
 import { StatisticsController } from "./modules/statistics/statistics.controller";
 import { StatisticsService } from "./modules/statistics/statistics.service";
 
+// Budget Control Module
+import { BudgetController } from "./modules/budget/budget.controller";
+import { BudgetService } from "./modules/budget/budget.service";
+
 // Guards
 import { RolesGuard } from "./common/guards/roles.guard";
 import { CaslAbilityGuard } from "./common/guards/casl-ability.guard";
@@ -166,6 +170,7 @@ const mongooseImports = process.env.MONGODB_URL
     PurchaseOrderController,
     TransactionsController,
     StatisticsController,
+    BudgetController,
   ],
   providers: [
     // Database Services
@@ -192,6 +197,7 @@ const mongooseImports = process.env.MONGODB_URL
     MasterDataService,
     TransactionsService,
     StatisticsService,
+    BudgetService,
 
     // Crypto / KMS
     TenantKmsService,
