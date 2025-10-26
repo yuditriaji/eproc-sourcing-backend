@@ -137,7 +137,6 @@ export class PaymentService {
 
       // Audit log
       await this.audit.log({
-        tenantId: user.tenantId,
         userId,
         action: 'CREATE',
         targetType: 'Payment',
@@ -184,18 +183,11 @@ export class PaymentService {
       ...(poId && { poId }),
     };
 
-    // Vendors can only see payments related to their invoices/POs
+    // Vendors can only see payments related to their invoices
     if (role === UserRole.VENDOR) {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        include: { vendor: true },
-      });
-
-      if (user?.vendor) {
-        where.invoice = {
-          vendorId: user.vendor.id,
-        };
-      }
+      where.invoice = {
+        vendorId: userId,
+      };
     }
 
     const [data, total] = await Promise.all([
@@ -283,7 +275,6 @@ export class PaymentService {
     });
 
     await this.audit.log({
-      tenantId,
       userId,
       action: 'UPDATE',
       targetType: 'Payment',
@@ -328,7 +319,6 @@ export class PaymentService {
     });
 
     await this.audit.log({
-      tenantId,
       userId,
       action: 'UPDATE',
       targetType: 'Payment',
@@ -379,7 +369,6 @@ export class PaymentService {
     });
 
     await this.audit.log({
-      tenantId,
       userId,
       action: 'UPDATE',
       targetType: 'Payment',
@@ -422,7 +411,6 @@ export class PaymentService {
     });
 
     await this.audit.log({
-      tenantId,
       userId,
       action: 'UPDATE',
       targetType: 'Payment',
@@ -458,7 +446,6 @@ export class PaymentService {
     });
 
     await this.audit.log({
-      tenantId,
       userId,
       action: 'UPDATE',
       targetType: 'Payment',
@@ -499,7 +486,6 @@ export class PaymentService {
     });
 
     await this.audit.log({
-      tenantId,
       userId,
       action: 'UPDATE',
       targetType: 'Payment',
@@ -529,7 +515,6 @@ export class PaymentService {
     });
 
     await this.audit.log({
-      tenantId,
       userId,
       action: 'DELETE',
       targetType: 'Payment',

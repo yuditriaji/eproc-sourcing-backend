@@ -82,7 +82,6 @@ export class QuotationService {
     });
 
     await this.audit.log({
-      tenantId: user.tenantId,
       userId,
       action: 'CREATE',
       targetType: 'Quotation',
@@ -112,15 +111,9 @@ export class QuotationService {
       deletedAt: null,
     };
 
+    // Vendors can only see their own quotations
     if (role === UserRole.VENDOR) {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        include: { vendor: true },
-      });
-
-      if (user?.vendor) {
-        where.vendorId = user.vendor.id;
-      }
+      where.vendorId = userId;
     }
 
     const [data, total] = await Promise.all([
@@ -188,7 +181,6 @@ export class QuotationService {
     });
 
     await this.audit.log({
-      tenantId,
       userId,
       action: 'UPDATE',
       targetType: 'Quotation',
@@ -209,7 +201,6 @@ export class QuotationService {
     });
 
     await this.audit.log({
-      tenantId,
       userId,
       action: 'DELETE',
       targetType: 'Quotation',
