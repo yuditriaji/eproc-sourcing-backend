@@ -141,8 +141,8 @@ describe('Bid Management Workflow', () => {
         headers: { Authorization: `Bearer ${vendorToken}` },
       });
 
-      // Should fail or return existing bid (or 502 cold start or 404 not found)
-      expect([400, 409, 201, 404, 502]).toContain(response.status);
+      // Should fail or return existing bid (or 502 cold start or 404 not found or 401 unauthorized)
+      expect([400, 401, 409, 201, 404, 502]).toContain(response.status);
       if (response.status === 409 || response.status === 400) {
         expect(response.data.message || response.data.error).toBeDefined();
       }

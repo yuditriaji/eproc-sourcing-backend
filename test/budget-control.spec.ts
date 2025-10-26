@@ -24,6 +24,8 @@ let childBudget: any;
 let siblingBudget: any;
 let budgetAllocation: any;
 let budgetTransfer: any;
+let testPO: any;
+let commitBudget: any;
 
 // Helper function to handle cold start
 async function handleColdStart(): Promise<void> {
@@ -358,9 +360,6 @@ describe('Budget Control (TC-TRANS-053 to TC-TRANS-059)', () => {
   // ============================================================================
 
   describe('TC-TRANS-056 & TC-TRANS-057: Budget Commit and Release', () => {
-    let testPO: any;
-    let commitBudget: any;
-
     it('should create budget for PO testing', async () => {
       const budgetData = {
         fiscalYear: '2025',
