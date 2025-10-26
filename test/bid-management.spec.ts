@@ -7,6 +7,7 @@ import axios, { AxiosInstance } from 'axios';
 
 const BASE_URL = process.env.BASE_URL || 'https://eproc-sourcing-backend.onrender.com';
 const API_URL = `${BASE_URL}/api/v1`;
+const TENANT = 'test-tenant';
 
 describe('Bid Management Workflow', () => {
   let client: AxiosInstance;
@@ -41,7 +42,7 @@ describe('Bid Management Workflow', () => {
 
     // Create a published tender
     const tenderRes = await client.post(
-      '/tenders',
+      `/${TENANT}/tenders`,
       {
         title: `Bid Test Tender ${Date.now()}`,
         description: 'Tender for bid testing',
@@ -55,7 +56,7 @@ describe('Bid Management Workflow', () => {
     tenderId = tenderRes.data.id;
 
     // Publish the tender
-    await client.patch(`/tenders/${tenderId}/publish`, {}, { headers: { Authorization: `Bearer ${userToken}` } });
+    await client.patch(`/${TENANT}/tenders/${tenderId}/publish`, {}, { headers: { Authorization: `Bearer ${userToken}` } });
 
     // Create and login as VENDOR
     const vendorEmail = `vendor-${Date.now()}@test.com`;
@@ -94,7 +95,7 @@ describe('Bid Management Workflow', () => {
         },
       };
 
-      const response = await client.post('/bids', bidData, {
+      const response = await client.post(`/${TENANT}/bids`, bidData, {
         headers: { Authorization: `Bearer ${vendorToken}` },
       });
 
@@ -115,7 +116,7 @@ describe('Bid Management Workflow', () => {
       }
 
       const response = await client.patch(
-        `/bids/${bidId}/submit`,
+        `/${TENANT}/bids/${bidId}/submit`,
         {},
         { headers: { Authorization: `Bearer ${vendorToken}` } },
       );
@@ -136,7 +137,7 @@ describe('Bid Management Workflow', () => {
         financialProposal: { total: 96000 },
       };
 
-      const response = await client.post('/bids', bidData, {
+      const response = await client.post(`/${TENANT}/bids`, bidData, {
         headers: { Authorization: `Bearer ${vendorToken}` },
       });
 
@@ -155,7 +156,7 @@ describe('Bid Management Workflow', () => {
         return;
       }
 
-      const response = await client.get(`/bids/${bidId}`, {
+      const response = await client.get(`/${TENANT}/bids/${bidId}`, {
         headers: { Authorization: `Bearer ${userToken}` },
       });
 
@@ -182,7 +183,7 @@ describe('Bid Management Workflow', () => {
         evaluationNotes: 'Strong technical proposal, competitive pricing',
       };
 
-      const response = await client.patch(`/bids/${bidId}/evaluate`, evaluationData, {
+      const response = await client.patch(`/${TENANT}/bids/${bidId}/evaluate`, evaluationData, {
         headers: { Authorization: `Bearer ${userToken}` },
       });
 
@@ -201,7 +202,7 @@ describe('Bid Management Workflow', () => {
         return;
       }
 
-      const response = await client.get(`/bids/${bidId}`, {
+      const response = await client.get(`/${TENANT}/bids/${bidId}`, {
         headers: { Authorization: `Bearer ${userToken}` },
       });
 
@@ -225,7 +226,7 @@ describe('Bid Management Workflow', () => {
       }
 
       const response = await client.patch(
-        `/bids/${bidId}/accept`,
+        `/${TENANT}/bids/${bidId}/accept`,
         { notes: 'Bid accepted for excellent proposal' },
         { headers: { Authorization: `Bearer ${userToken}` } },
       );
@@ -251,7 +252,7 @@ describe('Bid Management Workflow', () => {
       });
 
       const bidRes = await client.post(
-        '/bids',
+        `/${TENANT}/bids`,
         {
           tenderId,
           bidAmount: 110000,
@@ -265,18 +266,18 @@ describe('Bid Management Workflow', () => {
         const newBidId = bidRes.data.id;
 
         // Submit it
-        await client.patch(`/bids/${newBidId}/submit`, {}, { headers: { Authorization: `Bearer ${login.data.accessToken}` } });
+        await client.patch(`/${TENANT}/bids/${newBidId}/submit`, {}, { headers: { Authorization: `Bearer ${login.data.accessToken}` } });
 
         // Evaluate it
         await client.patch(
-          `/bids/${newBidId}/evaluate`,
+          `/${TENANT}/bids/${newBidId}/evaluate`,
           { technicalScore: 60, commercialScore: 50 },
           { headers: { Authorization: `Bearer ${userToken}` } },
         );
 
         // Reject it
         const rejectRes = await client.patch(
-          `/bids/${newBidId}/reject`,
+          `/${TENANT}/bids/${newBidId}/reject`,
           { notes: 'Pricing too high' },
           { headers: { Authorization: `Bearer ${userToken}` } },
         );
@@ -292,7 +293,7 @@ describe('Bid Management Workflow', () => {
     it('should allow vendor to withdraw submitted bid', async () => {
       // Create new tender
       const newTenderRes = await client.post(
-        '/tenders',
+        `/${TENANT}/tenders`,
         {
           title: `Withdraw Test Tender ${Date.now()}`,
           description: 'Test',
@@ -304,11 +305,11 @@ describe('Bid Management Workflow', () => {
       );
 
       const newTenderId = newTenderRes.data.id;
-      await client.patch(`/tenders/${newTenderId}/publish`, {}, { headers: { Authorization: `Bearer ${userToken}` } });
+      await client.patch(`/${TENANT}/tenders/${newTenderId}/publish`, {}, { headers: { Authorization: `Bearer ${userToken}` } });
 
       // Submit bid
       const bidRes = await client.post(
-        '/bids',
+        `/${TENANT}/bids`,
         {
           tenderId: newTenderId,
           bidAmount: 48000,
@@ -322,11 +323,11 @@ describe('Bid Management Workflow', () => {
         const withdrawBidId = bidRes.data.id;
 
         // Submit
-        await client.patch(`/bids/${withdrawBidId}/submit`, {}, { headers: { Authorization: `Bearer ${vendorToken}` } });
+        await client.patch(`/${TENANT}/bids/${withdrawBidId}/submit`, {}, { headers: { Authorization: `Bearer ${vendorToken}` } });
 
         // Withdraw
         const withdrawRes = await client.patch(
-          `/bids/${withdrawBidId}/withdraw`,
+          `/${TENANT}/bids/${withdrawBidId}/withdraw`,
           {},
           { headers: { Authorization: `Bearer ${vendorToken}` } },
         );
@@ -340,7 +341,7 @@ describe('Bid Management Workflow', () => {
 
   describe('Bid Listing and Filtering', () => {
     it('should list all bids for a tender (USER view)', async () => {
-      const response = await client.get(`/tenders/${tenderId}/bids`, {
+      const response = await client.get(`/${TENANT}/tenders/${tenderId}/bids`, {
         headers: { Authorization: `Bearer ${userToken}` },
       });
 
@@ -350,7 +351,7 @@ describe('Bid Management Workflow', () => {
     });
 
     it('should list vendor own bids only', async () => {
-      const response = await client.get('/bids', {
+      const response = await client.get(`/${TENANT}/bids`, {
         headers: { Authorization: `Bearer ${vendorToken}` },
       });
 

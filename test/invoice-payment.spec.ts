@@ -7,6 +7,10 @@ import axios, { AxiosInstance } from 'axios';
 
 const BASE_URL = process.env.BASE_URL || 'https://eproc-sourcing-backend.onrender.com';
 const API_URL = `${BASE_URL}/api/v1`;
+const TENANT = 'test-tenant';
+
+// NOTE: Invoice and Payment controllers need to be created first!
+// Vendors and PO endpoints will work after this fix.
 
 describe('Invoice and Payment Workflow', () => {
   let client: AxiosInstance;
@@ -41,7 +45,7 @@ describe('Invoice and Payment Workflow', () => {
 
     // Create vendor
     const vendorRes = await client.post(
-      '/vendors',
+      `/${TENANT}/vendors`,
       {
         name: `Invoice Test Vendor ${Date.now()}`,
         registrationNumber: `REG-INV-${Date.now()}`,
@@ -72,7 +76,7 @@ describe('Invoice and Payment Workflow', () => {
 
     // Create a PO for invoice testing
     const poRes = await client.post(
-      '/purchase-orders',
+      `/${TENANT}/purchase-orders`,
       {
         title: `Invoice Test PO ${Date.now()}`,
         description: 'PO for invoice testing',
@@ -88,7 +92,7 @@ describe('Invoice and Payment Workflow', () => {
     if (poRes.status === 201) {
       poId = poRes.data.id;
       // Approve the PO
-      await client.patch(`/purchase-orders/${poId}/approve`, {}, { headers: { Authorization: `Bearer ${adminToken}` } });
+      await client.patch(`/${TENANT}/purchase-orders/${poId}/approve`, {}, { headers: { Authorization: `Bearer ${adminToken}` } });
     }
   });
 
@@ -126,7 +130,7 @@ describe('Invoice and Payment Workflow', () => {
         notes: 'Invoice for completed services',
       };
 
-      const response = await client.post('/invoices', invoiceData, {
+      const response = await client.post(`/${TENANT}/invoices`, invoiceData, {
         headers: { Authorization: `Bearer ${vendorToken}` },
       });
 
@@ -146,7 +150,7 @@ describe('Invoice and Payment Workflow', () => {
         return;
       }
 
-      const response = await client.get(`/invoices/${invoiceId}`, {
+      const response = await client.get(`/${TENANT}/invoices/${invoiceId}`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
 
@@ -164,7 +168,7 @@ describe('Invoice and Payment Workflow', () => {
         return;
       }
 
-      const response = await client.get(`/invoices/${invoiceId}/items`, {
+      const response = await client.get(`/${TENANT}/invoices/${invoiceId}/items`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
 
@@ -188,7 +192,7 @@ describe('Invoice and Payment Workflow', () => {
         return;
       }
 
-      const response = await client.get(`/invoices/${invoiceId}`, {
+      const response = await client.get(`/${TENANT}/invoices/${invoiceId}`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
 
@@ -210,7 +214,7 @@ describe('Invoice and Payment Workflow', () => {
       }
 
       const response = await client.patch(
-        `/invoices/${invoiceId}/approve`,
+        `/${TENANT}/invoices/${invoiceId}/approve`,
         { notes: 'Invoice approved for payment' },
         { headers: { Authorization: `Bearer ${adminToken}` } },
       );
@@ -229,7 +233,7 @@ describe('Invoice and Payment Workflow', () => {
       }
 
       const response = await client.patch(
-        `/invoices/${invoiceId}/status`,
+        `/${TENANT}/invoices/${invoiceId}/status`,
         { status: 'PAID' },
         { headers: { Authorization: `Bearer ${adminToken}` } },
       );
@@ -259,7 +263,7 @@ describe('Invoice and Payment Workflow', () => {
         dueDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days ago
       };
 
-      const createRes = await client.post('/invoices', overdueInvoiceData, {
+      const createRes = await client.post(`/${TENANT}/invoices`, overdueInvoiceData, {
         headers: { Authorization: `Bearer ${vendorToken}` },
       });
 
@@ -267,10 +271,10 @@ describe('Invoice and Payment Workflow', () => {
         const overdueId = createRes.data.id;
 
         // Approve it
-        await client.patch(`/invoices/${overdueId}/approve`, {}, { headers: { Authorization: `Bearer ${adminToken}` } });
+        await client.patch(`/${TENANT}/invoices/${overdueId}/approve`, {}, { headers: { Authorization: `Bearer ${adminToken}` } });
 
         // Check if system marks as overdue
-        const checkRes = await client.get(`/invoices/${overdueId}`, {
+        const checkRes = await client.get(`/${TENANT}/invoices/${overdueId}`, {
           headers: { Authorization: `Bearer ${adminToken}` },
         });
 
@@ -300,7 +304,7 @@ describe('Invoice and Payment Workflow', () => {
         items: [{ itemNumber: 1, description: 'Disputed Item', quantity: 1, unitPrice: 8000, totalAmount: 8000 }],
       };
 
-      const createRes = await client.post('/invoices', disputeInvoiceData, {
+      const createRes = await client.post(`/${TENANT}/invoices`, disputeInvoiceData, {
         headers: { Authorization: `Bearer ${vendorToken}` },
       });
 
@@ -308,7 +312,7 @@ describe('Invoice and Payment Workflow', () => {
         const disputeId = createRes.data.id;
 
         const response = await client.patch(
-          `/invoices/${disputeId}/dispute`,
+          `/${TENANT}/invoices/${disputeId}/dispute`,
           { reason: 'Amount does not match agreed terms' },
           { headers: { Authorization: `Bearer ${adminToken}` } },
         );
@@ -338,7 +342,7 @@ describe('Invoice and Payment Workflow', () => {
         items: [{ itemNumber: 1, description: 'Cancelled Item', quantity: 1, unitPrice: 3000, totalAmount: 3000 }],
       };
 
-      const createRes = await client.post('/invoices', cancelInvoiceData, {
+      const createRes = await client.post(`/${TENANT}/invoices`, cancelInvoiceData, {
         headers: { Authorization: `Bearer ${vendorToken}` },
       });
 
@@ -346,7 +350,7 @@ describe('Invoice and Payment Workflow', () => {
         const cancelId = createRes.data.id;
 
         const response = await client.patch(
-          `/invoices/${cancelId}/cancel`,
+          `/${TENANT}/invoices/${cancelId}/cancel`,
           { reason: 'Invoice created in error' },
           { headers: { Authorization: `Bearer ${adminToken}` } },
         );
@@ -376,7 +380,7 @@ describe('Invoice and Payment Workflow', () => {
         notes: 'Payment for invoice services',
       };
 
-      const response = await client.post('/payments', paymentData, {
+      const response = await client.post(`/${TENANT}/payments`, paymentData, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
 
@@ -407,7 +411,7 @@ describe('Invoice and Payment Workflow', () => {
           paymentType: type,
         };
 
-        const response = await client.post('/payments', paymentData, {
+        const response = await client.post(`/${TENANT}/payments`, paymentData, {
           headers: { Authorization: `Bearer ${adminToken}` },
         });
 
@@ -426,7 +430,7 @@ describe('Invoice and Payment Workflow', () => {
       }
 
       const response = await client.patch(
-        `/payments/${paymentId}/approve`,
+        `/${TENANT}/payments/${paymentId}/approve`,
         { approvedBy: 'Finance Manager' },
         { headers: { Authorization: `Bearer ${adminToken}` } },
       );
@@ -446,7 +450,7 @@ describe('Invoice and Payment Workflow', () => {
       }
 
       const response = await client.patch(
-        `/payments/${paymentId}/process`,
+        `/${TENANT}/payments/${paymentId}/process`,
         {
           reference: `REF-${Date.now()}`,
           processedDate: new Date().toISOString(),
@@ -470,7 +474,7 @@ describe('Invoice and Payment Workflow', () => {
       }
 
       const response = await client.patch(
-        `/payments/${paymentId}/receive`,
+        `/${TENANT}/payments/${paymentId}/receive`,
         { receivedAt: new Date().toISOString() },
         { headers: { Authorization: `Bearer ${vendorToken}` } },
       );
@@ -497,7 +501,7 @@ describe('Invoice and Payment Workflow', () => {
         paymentType: 'FULL',
       };
 
-      const createRes = await client.post('/payments', paymentData, {
+      const createRes = await client.post(`/${TENANT}/payments`, paymentData, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
 
@@ -505,11 +509,11 @@ describe('Invoice and Payment Workflow', () => {
         const failPaymentId = createRes.data.id;
 
         // Approve it
-        await client.patch(`/payments/${failPaymentId}/approve`, {}, { headers: { Authorization: `Bearer ${adminToken}` } });
+        await client.patch(`/${TENANT}/payments/${failPaymentId}/approve`, {}, { headers: { Authorization: `Bearer ${adminToken}` } });
 
         // Mark as failed
         const response = await client.patch(
-          `/payments/${failPaymentId}/fail`,
+          `/${TENANT}/payments/${failPaymentId}/fail`,
           { reason: 'Insufficient funds' },
           { headers: { Authorization: `Bearer ${adminToken}` } },
         );
@@ -537,7 +541,7 @@ describe('Invoice and Payment Workflow', () => {
         paymentType: 'FULL',
       };
 
-      const createRes = await client.post('/payments', paymentData, {
+      const createRes = await client.post(`/${TENANT}/payments`, paymentData, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
 
@@ -545,7 +549,7 @@ describe('Invoice and Payment Workflow', () => {
         const cancelPaymentId = createRes.data.id;
 
         const response = await client.patch(
-          `/payments/${cancelPaymentId}/cancel`,
+          `/${TENANT}/payments/${cancelPaymentId}/cancel`,
           { reason: 'Payment no longer required' },
           { headers: { Authorization: `Bearer ${adminToken}` } },
         );
@@ -559,7 +563,7 @@ describe('Invoice and Payment Workflow', () => {
 
   describe('Invoice and Payment Listing', () => {
     it('should list all invoices', async () => {
-      const response = await client.get('/invoices', {
+      const response = await client.get(`/${TENANT}/invoices`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
 
@@ -569,7 +573,7 @@ describe('Invoice and Payment Workflow', () => {
     });
 
     it('should list vendor own invoices', async () => {
-      const response = await client.get('/invoices', {
+      const response = await client.get(`/${TENANT}/invoices`, {
         headers: { Authorization: `Bearer ${vendorToken}` },
       });
 
@@ -579,7 +583,7 @@ describe('Invoice and Payment Workflow', () => {
     });
 
     it('should list all payments', async () => {
-      const response = await client.get('/payments', {
+      const response = await client.get(`/${TENANT}/payments`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
 
@@ -589,7 +593,7 @@ describe('Invoice and Payment Workflow', () => {
     });
 
     it('should filter invoices by status', async () => {
-      const response = await client.get('/invoices?status=APPROVED', {
+      const response = await client.get(`/${TENANT}/invoices?status=APPROVED`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
 

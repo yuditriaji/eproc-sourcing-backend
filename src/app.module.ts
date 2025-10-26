@@ -79,6 +79,18 @@ import { StatisticsService } from "./modules/statistics/statistics.service";
 import { BudgetController } from "./modules/budget/budget.controller";
 import { BudgetService } from "./modules/budget/budget.service";
 
+// Invoice Module
+import { InvoiceController } from "./modules/invoice/invoice.controller";
+import { InvoiceService } from "./modules/invoice/invoice.service";
+
+// Payment Module
+import { PaymentController } from "./modules/payment/payment.controller";
+import { PaymentService } from "./modules/payment/payment.service";
+
+// Quotation Module
+import { QuotationController } from "./modules/quotation/quotation.controller";
+import { QuotationService } from "./modules/quotation/quotation.service";
+
 // Guards
 import { RolesGuard } from "./common/guards/roles.guard";
 import { CaslAbilityGuard } from "./common/guards/casl-ability.guard";
@@ -171,6 +183,9 @@ const mongooseImports = process.env.MONGODB_URL
     TransactionsController,
     StatisticsController,
     BudgetController,
+    InvoiceController,
+    PaymentController,
+    QuotationController,
   ],
   providers: [
     // Database Services
@@ -198,6 +213,9 @@ const mongooseImports = process.env.MONGODB_URL
     TransactionsService,
     StatisticsService,
     BudgetService,
+    InvoiceService,
+    PaymentService,
+    QuotationService,
 
     // Crypto / KMS
     TenantKmsService,
