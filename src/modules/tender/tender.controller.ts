@@ -196,7 +196,7 @@ export class TenderController {
 
     return this.tenderService.createTender(
       createTenderDto,
-      user.userId,
+      user.id,
       user.role,
       ipAddress,
       userAgent,
@@ -231,7 +231,7 @@ export class TenderController {
     const user = req.user as any;
 
     return this.tenderService.getTenders(
-      user.userId,
+      user.id,
       user.role,
       user.department,
       query,
@@ -253,7 +253,7 @@ export class TenderController {
   async getTenderById(@Param("id") id: string, @Req() req: Request) {
     const user = req.user as any;
 
-    return this.tenderService.getTenderById(id, user.userId, user.role);
+    return this.tenderService.getTenderById(id, user.id, user.role);
   }
 
   @Put(":id")
@@ -287,7 +287,7 @@ export class TenderController {
     return this.tenderService.updateTender(
       id,
       updateTenderDto,
-      user.userId,
+      user.id,
       user.role,
       ipAddress,
       userAgent,
@@ -320,7 +320,7 @@ export class TenderController {
 
     return this.tenderService.publishTender(
       id,
-      user.userId,
+      user.id,
       user.role,
       ipAddress,
       userAgent,
@@ -353,7 +353,7 @@ export class TenderController {
 
     return this.tenderService.deleteTender(
       id,
-      user.userId,
+      user.id,
       user.role,
       ipAddress,
       userAgent,

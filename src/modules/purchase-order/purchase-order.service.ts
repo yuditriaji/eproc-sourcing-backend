@@ -137,8 +137,18 @@ export class PurchaseOrderService {
         createPODto.totalAmount ||
         createPODto.amount + (createPODto.taxAmount || 0);
 
+      // Get user's tenant ID
+      const user = await this.prisma.user.findUnique({
+        where: { id: createdById },
+      });
+      
+      if (!user) {
+        throw new BadRequestException("User not found");
+      }
+
       const po = await this.prisma.purchaseOrder.create({
         data: {
+          tenantId: user.tenantId,
           poNumber,
           title: createPODto.title,
           description: createPODto.description,

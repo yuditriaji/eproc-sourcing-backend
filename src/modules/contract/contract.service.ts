@@ -46,9 +46,21 @@ export class ContractService {
     ownerId: string,
   ): Promise<Contract> {
     try {
-      // Check if contract number is unique
+      // Get user to find tenantId
+      const owner = await this.prisma.user.findUnique({
+        where: { id: ownerId },
+      });
+      
+      if (!owner) {
+        throw new BadRequestException("Owner not found");
+      }
+
+      // Check if contract number is unique within tenant
       const existingContract = await this.prisma.contract.findFirst({
-        where: { contractNumber: createContractDto.contractNumber },
+        where: { 
+          tenantId: owner.tenantId,
+          contractNumber: createContractDto.contractNumber 
+        },
       });
 
       if (existingContract) {
@@ -57,6 +69,7 @@ export class ContractService {
 
       const contract = await this.prisma.contract.create({
         data: {
+          tenantId: owner.tenantId,
           contractNumber: createContractDto.contractNumber,
           title: createContractDto.title,
           description: createContractDto.description,
@@ -68,7 +81,7 @@ export class ContractService {
           deliverables: createContractDto.deliverables,
           ownerId,
           status: ContractStatus.DRAFT,
-        } as any,
+        },
         include: {
           owner: true,
           currency: true,

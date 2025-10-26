@@ -112,8 +112,18 @@ export class PurchaseRequisitionService {
         }
       }
 
+      // Get user's tenant ID
+      const user = await this.prisma.user.findUnique({
+        where: { id: requesterId },
+      });
+      
+      if (!user) {
+        throw new BadRequestException("User not found");
+      }
+
       const pr = await this.prisma.purchaseRequisition.create({
         data: {
+          tenantId: user.tenantId,
           prNumber,
           title: createPRDto.title,
           description: createPRDto.description,

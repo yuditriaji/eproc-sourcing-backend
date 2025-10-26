@@ -53,6 +53,15 @@ export class TenderService {
     ipAddress: string,
     userAgent: string,
   ) {
+    // Get user to find tenantId
+    const user = await this.prismaService.user.findUnique({
+      where: { id: userId },
+    });
+    
+    if (!user) {
+      throw new BadRequestException("User not found");
+    }
+
     // Role-based permission check
     if (userRole !== "ADMIN" && userRole !== "USER") {
       throw new ForbiddenException("Insufficient permissions to create tender");
@@ -95,6 +104,7 @@ export class TenderService {
 
     const tender = await this.prismaService.tender.create({
       data: {
+        tenantId: user.tenantId,
         title: tenderData.title,
         description: tenderData.description,
         requirements: tenderData.requirements,
@@ -112,7 +122,7 @@ export class TenderService {
         purchasingOrgId: (createTenderDto as any).purchasingOrgId,
         purchasingGroupId: (createTenderDto as any).purchasingGroupId,
         tenderNumber: `TDR-${Date.now()}`, // Temporary number generation
-      } as any,
+      },
       include: {
         creator: {
           select: {

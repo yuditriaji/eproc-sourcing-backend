@@ -67,6 +67,14 @@ import { CurrencyService } from "./modules/currency/currency.service";
 import { MasterDataController } from "./modules/master-data/master-data.controller";
 import { MasterDataService } from "./modules/master-data/master-data.service";
 
+// Transaction Controllers
+import { PurchaseRequisitionController } from "./modules/purchase-requisition/purchase-requisition.controller";
+import { PurchaseOrderController } from "./modules/purchase-order/purchase-order.controller";
+import { TransactionsController } from "./modules/transactions/transactions.controller";
+import { TransactionsService } from "./modules/transactions/transactions.service";
+import { StatisticsController } from "./modules/statistics/statistics.controller";
+import { StatisticsService } from "./modules/statistics/statistics.service";
+
 // Guards
 import { RolesGuard } from "./common/guards/roles.guard";
 import { CaslAbilityGuard } from "./common/guards/casl-ability.guard";
@@ -154,6 +162,10 @@ const mongooseImports = process.env.MONGODB_URL
     OrgStructureController,
     CurrencyController,
     MasterDataController,
+    PurchaseRequisitionController,
+    PurchaseOrderController,
+    TransactionsController,
+    StatisticsController,
   ],
   providers: [
     // Database Services
@@ -178,6 +190,8 @@ const mongooseImports = process.env.MONGODB_URL
     OrgStructureService,
     CurrencyService,
     MasterDataService,
+    TransactionsService,
+    StatisticsService,
 
     // Crypto / KMS
     TenantKmsService,

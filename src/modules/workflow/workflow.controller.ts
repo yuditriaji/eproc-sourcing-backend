@@ -406,7 +406,7 @@ export class WorkflowController {
     try {
       const result = await this.workflowService.submitBid(
         tenderId,
-        req.user.id, // Assuming vendor user ID
+        req.user.id, // User ID (will resolve to vendor)
         bidData,
       );
 
@@ -506,6 +506,49 @@ export class WorkflowController {
     }
   }
 
+  @Post("tender/evaluate-bid/:tenderId/:bidId")
+  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @ApiOperation({ summary: "Evaluate a Bid with tender and bid ID" })
+  @ApiResponseDoc({ status: 200, description: "Bid evaluated successfully" })
+  @ApiResponseDoc({ status: 400, description: "Bad request" })
+  @ApiResponseDoc({ status: 401, description: "Unauthorized" })
+  @ApiResponseDoc({ status: 403, description: "Forbidden" })
+  @ApiResponseDoc({ status: 404, description: "Bid not found" })
+  async evaluateBidWithTender(
+    @Param("tenderId") tenderId: string,
+    @Param("bidId") bidId: string,
+    @Body()
+    evaluation: {
+      technicalScore: number;
+      commercialScore: number;
+      evaluationNotes?: string;
+    },
+    @Request() req: any,
+  ): Promise<ApiResponse> {
+    try {
+      const result = await this.workflowService.evaluateBid(
+        bidId,
+        evaluation,
+        req.user.id,
+      );
+
+      return {
+        success: result.success,
+        statusCode: result.success ? HttpStatus.OK : HttpStatus.BAD_REQUEST,
+        message: result.message,
+        data: result.data,
+        meta: result.nextSteps ? { nextSteps: result.nextSteps } : undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: "Failed to evaluate bid",
+        errors: [error.message],
+      };
+    }
+  }
+
   @Post("tender/award/:tenderId/:winningBidId")
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async awardTender(
@@ -541,6 +584,48 @@ export class WorkflowController {
   // WORKFLOW STATUS TRACKING
   // ============================================================================
 
+  @Get("status")
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.BUYER,
+    UserRole.MANAGER,
+    UserRole.FINANCE,
+    UserRole.VENDOR,
+  )
+  @ApiOperation({ summary: "Get general workflow status" })
+  @ApiResponseDoc({ status: 200, description: "Workflow status retrieved successfully" })
+  async getGeneralWorkflowStatus(@Request() req: any): Promise<ApiResponse> {
+    try {
+      const status = {
+        system: "operational",
+        workflows: {
+          procurement: "active",
+          tender: "active",
+        },
+        user: {
+          id: req.user.id,
+          role: req.user.role,
+          tenantId: req.user.tenantId,
+        },
+        timestamp: new Date(),
+      };
+
+      return {
+        success: true,
+        statusCode: HttpStatus.OK,
+        message: "Workflow status retrieved successfully",
+        data: status,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: "Failed to retrieve workflow status",
+        errors: [error.message],
+      };
+    }
+  }
+
   @Get("status/:entityType/:entityId")
   @Roles(
     UserRole.ADMIN,
@@ -549,6 +634,8 @@ export class WorkflowController {
     UserRole.FINANCE,
     UserRole.VENDOR,
   )
+  @ApiOperation({ summary: "Get specific entity workflow status" })
+  @ApiResponseDoc({ status: 200, description: "Entity workflow status retrieved successfully" })
   async getWorkflowStatus(
     @Param("entityType") entityType: string,
     @Param("entityId") entityId: string,

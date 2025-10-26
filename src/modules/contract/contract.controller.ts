@@ -57,7 +57,7 @@ export class ContractController {
 
       const contract = await this.contractService.create(
         createContractDto,
-        req.user.userId,
+        req.user.id,
       );
 
       return {

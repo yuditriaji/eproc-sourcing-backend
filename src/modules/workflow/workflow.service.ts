@@ -332,7 +332,7 @@ export class WorkflowService {
   }
 
   /**
-   * Tender/Quotation Workflow 2: Create Tender → Vendor Submission → Evaluation → Award
+   * Tender Workflow 2: Create Tender → Vendor Submission → Evaluation → Award
    */
 
   async createTenderFromContract(
@@ -347,13 +347,26 @@ export class WorkflowService {
       category?: string;
       department?: string;
     },
-    creatorId: string,
+    userId: string,
   ): Promise<WorkflowTransitionResult> {
     try {
+      // Get user to find tenantId
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+      
+      if (!user) {
+        return {
+          success: false,
+          message: "User not found",
+        };
+      }
+
       const tenderNumber = await this.generateTenderNumber();
 
       const tender = await this.prisma.tender.create({
         data: {
+          tenantId: user.tenantId,
           tenderNumber,
           title: tenderData.title,
           description: tenderData.description,
@@ -364,7 +377,7 @@ export class WorkflowService {
           category: tenderData.category,
           department: tenderData.department,
           contractId,
-          creatorId,
+          creatorId: userId,
           status: TenderStatus.DRAFT,
         } as any,
         include: {
@@ -433,7 +446,7 @@ export class WorkflowService {
 
   async submitBid(
     tenderId: string,
-    vendorId: string,
+    userId: string,
     bidData: {
       bidAmount?: number;
       technicalProposal?: any;
@@ -442,12 +455,44 @@ export class WorkflowService {
     },
   ): Promise<WorkflowTransitionResult> {
     try {
+      // Get user to find associated vendor
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user || user.role !== UserRole.VENDOR) {
+        return {
+          success: false,
+          message: "Only vendor users can submit bids",
+        };
+      }
+
+      // Find vendor associated with this user
+      const vendor = await this.prisma.vendor.findFirst({
+        where: {
+          tenantId: user.tenantId,
+          contactEmail: user.email,
+        },
+      });
+
+      if (!vendor) {
+        return {
+          success: false,
+          message: "No vendor profile found for this user",
+        };
+      }
+
       // Check if tender is still open
-      const tender = await this.tenderService.getTenderById(
-        tenderId,
-        vendorId,
-        "ADMIN",
-      );
+      const tender = await this.prisma.tender.findUnique({
+        where: { id: tenderId },
+      });
+
+      if (!tender) {
+        return {
+          success: false,
+          message: "Tender not found",
+        };
+      }
 
       if (tender.status !== TenderStatus.PUBLISHED) {
         return {
@@ -463,40 +508,90 @@ export class WorkflowService {
         };
       }
 
-      const bid = await this.prisma.bid.create({
-        data: {
+      // Check if bid already exists for this vendor and tender
+      const existingBid = await this.prisma.bid.findFirst({
+        where: {
           tenderId,
-          vendorId,
-          bidAmount: bidData.bidAmount,
-          technicalProposal: bidData.technicalProposal,
-          financialProposal: bidData.financialProposal,
-          compliance: bidData.compliance,
-          status: BidStatus.SUBMITTED,
-          submittedAt: new Date(),
-        } as any,
-        include: {
-          tender: true,
-          vendor: true,
+          vendorId: vendor.id,
+          tenantId: user.tenantId,
         },
       });
 
-      await this.events.emit("workflow.bid_submitted", {
-        bidId: bid.id,
-        tenderId,
-        vendorId,
-      });
+      if (existingBid) {
+        // Update existing bid
+        const bid = await this.prisma.bid.update({
+          where: { id: existingBid.id },
+          data: {
+            bidAmount: bidData.bidAmount,
+            technicalProposal: bidData.technicalProposal,
+            financialProposal: bidData.financialProposal,
+            compliance: bidData.compliance,
+            status: BidStatus.SUBMITTED,
+            submittedAt: new Date(),
+          },
+          include: {
+            tender: true,
+            vendor: true,
+          },
+        });
+        
+        await this.events.emit("workflow.bid_updated", {
+          bidId: bid.id,
+          tenderId,
+          vendorId: vendor.id,
+          userId,
+        });
 
-      return {
-        success: true,
-        message: "Bid submitted successfully",
-        nextSteps: [
-          "Wait for tender closing",
-          "Evaluation by procurement team",
-          "Notification of results",
-          "Contract award if successful",
-        ],
-        data: bid,
-      };
+        return {
+          success: true,
+          message: "Bid updated and submitted successfully",
+          nextSteps: [
+            "Wait for tender closing",
+            "Evaluation by procurement team",
+            "Notification of results",
+            "Contract award if successful",
+          ],
+          data: bid,
+        };
+      } else {
+        // Create new bid
+        const bid = await this.prisma.bid.create({
+          data: {
+            tenantId: user.tenantId,
+            tenderId,
+            vendorId: vendor.id,
+            bidAmount: bidData.bidAmount,
+            technicalProposal: bidData.technicalProposal,
+            financialProposal: bidData.financialProposal,
+            compliance: bidData.compliance,
+            status: BidStatus.SUBMITTED,
+            submittedAt: new Date(),
+          },
+          include: {
+            tender: true,
+            vendor: true,
+          },
+        });
+
+        await this.events.emit("workflow.bid_submitted", {
+          bidId: bid.id,
+          tenderId,
+          vendorId: vendor.id,
+          userId,
+        });
+
+        return {
+          success: true,
+          message: "Bid submitted successfully",
+          nextSteps: [
+            "Wait for tender closing",
+            "Evaluation by procurement team",
+            "Notification of results",
+            "Contract award if successful",
+          ],
+          data: bid,
+        };
+      }
     } catch (error) {
       return {
         success: false,
@@ -562,9 +657,47 @@ export class WorkflowService {
     evaluatorId: string,
   ): Promise<WorkflowTransitionResult> {
     try {
-      const totalScore =
-        (evaluation.technicalScore + evaluation.commercialScore) / 2;
+      // Get evaluator user for tenantId
+      const evaluator = await this.prisma.user.findUnique({
+        where: { id: evaluatorId },
+      });
+      
+      if (!evaluator) {
+        return {
+          success: false,
+          message: "Evaluator not found",
+        };
+      }
 
+      // Check if bid exists and belongs to correct tenant
+      const existingBid = await this.prisma.bid.findFirst({
+        where: { 
+          id: bidId,
+          tenantId: evaluator.tenantId,
+        },
+        include: {
+          tender: true,
+        },
+      });
+
+      if (!existingBid) {
+        return {
+          success: false,
+          message: "Bid not found or access denied",
+        };
+      }
+
+      if (existingBid.tender.status !== 'CLOSED') {
+        return {
+          success: false,
+          message: "Cannot evaluate bids for tenders that are not closed",
+        };
+      }
+
+      // Calculate total score (weighted average)
+      const totalScore = (evaluation.technicalScore + evaluation.commercialScore) / 2;
+
+      // Update bid with evaluation
       const bid = await this.prisma.bid.update({
         where: { id: bidId },
         data: {
@@ -582,9 +715,20 @@ export class WorkflowService {
         },
       });
 
+      // Emit evaluation event
+      await this.events.emit("workflow.bid_evaluated", {
+        bidId,
+        evaluatorId,
+        scores: {
+          technical: evaluation.technicalScore,
+          commercial: evaluation.commercialScore,
+          total: totalScore,
+        },
+      });
+
       return {
         success: true,
-        message: "Bid evaluation completed",
+        message: "Bid evaluation completed successfully",
         nextSteps: [
           "Complete evaluation of all bids",
           "Compare scores and rankings",
