@@ -56,7 +56,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // }
 
     return {
-      userId: user.id,
+      id: user.id, // Add 'id' for controllers that expect req.user.id
+      userId: user.id, // Keep 'userId' for backward compatibility
       email: user.email,
       username: user.username,
       firstName: user.firstName,
