@@ -3,10 +3,13 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { EventService } from "../events/event.service";
+import { BudgetService } from "../budget/budget.service";
 import {
   POStatus,
   Prisma,
@@ -35,6 +38,9 @@ export interface CreatePODto {
   storageLocationId?: string;
   purchasingOrgId?: string;
   purchasingGroupId?: string;
+  // Budget control fields
+  budgetId?: string;
+  transferTraceId?: string;
 }
 
 export interface UpdatePODto {
@@ -62,6 +68,8 @@ export class PurchaseOrderService {
     private prisma: PrismaService,
     private audit: AuditService,
     private events: EventService,
+    @Inject(forwardRef(() => BudgetService))
+    private budgetService: BudgetService,
   ) {}
 
   async create(
@@ -146,6 +154,28 @@ export class PurchaseOrderService {
         throw new BadRequestException("User not found");
       }
 
+      // Budget validation and deduction if budgetId provided
+      if (createPODto.budgetId) {
+        // Verify budget exists and has sufficient funds
+        const budget = await this.prisma.budget.findFirst({
+          where: {
+            id: createPODto.budgetId,
+            tenantId: user.tenantId,
+          },
+        });
+
+        if (!budget) {
+          throw new NotFoundException('Budget not found');
+        }
+
+        const availableAmount = parseFloat(budget.availableAmount.toString());
+        if (availableAmount < totalAmount) {
+          throw new BadRequestException(
+            `Insufficient budget. Available: ${availableAmount}, Required: ${totalAmount}`,
+          );
+        }
+      }
+
       const po = await this.prisma.purchaseOrder.create({
         data: {
           tenantId: user.tenantId,
@@ -167,6 +197,10 @@ export class PurchaseOrderService {
           storageLocationId: (createPODto as any).storageLocationId,
           purchasingOrgId: (createPODto as any).purchasingOrgId,
           purchasingGroupId: (createPODto as any).purchasingGroupId,
+          // budget control fields
+          budgetId: createPODto.budgetId,
+          transferTraceId: createPODto.transferTraceId,
+          totalCommitted: createPODto.budgetId ? totalAmount : null,
           createdById,
           status: POStatus.DRAFT,
         } as any,
@@ -182,6 +216,31 @@ export class PurchaseOrderService {
       // Add vendors
       if (createPODto.vendorIds && createPODto.vendorIds.length > 0) {
         await this.addVendors(po.id, createPODto.vendorIds, createdById);
+      }
+
+      // Budget deduction if budgetId provided
+      if (createPODto.budgetId) {
+        // Extract items for budget tracking
+        const poItems = Array.isArray(createPODto.items)
+          ? createPODto.items
+          : createPODto.items?.lineItems || [];
+
+        await this.budgetService.deduct(
+          user.tenantId,
+          {
+            budgetId: createPODto.budgetId,
+            amount: totalAmount,
+            transferTraceId: createPODto.transferTraceId,
+            targetType: 'PO',
+            targetId: po.id,
+            items: poItems.map((item: any, idx: number) => ({
+              itemNumber: idx + 1,
+              consumedAmount: item.amount || item.totalAmount || 0,
+              transferTraceId: item.transferTraceId || createPODto.transferTraceId,
+            })),
+          },
+          createdById,
+        );
       }
 
       // Audit log
