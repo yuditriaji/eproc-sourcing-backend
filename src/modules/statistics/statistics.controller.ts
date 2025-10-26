@@ -41,9 +41,9 @@ export class StatisticsController {
   @ApiResponseDoc({ status: 401, description: "Unauthorized" })
   @ApiResponseDoc({ status: 403, description: "Forbidden" })
   async getPurchaseOrderStatistics(
-    @Query("startDate") startDate?: string,
-    @Query("endDate") endDate?: string,
-    @Query("createdById") createdById?: string,
+    @Query("startDate") startDate: string = "",
+    @Query("endDate") endDate: string = "",
+    @Query("createdById") createdById: string = "",
     @Request() req: any,
   ): Promise<ApiResponse> {
     try {
@@ -52,13 +52,13 @@ export class StatisticsController {
       
       // For non-admin users, filter by their own records
       const actualCreatedById = 
-        req.user.role === UserRole.ADMIN ? createdById : req.user.id;
+        req.user.role === UserRole.ADMIN ? (createdById || undefined) : req.user.id;
 
       const filters: DateRangeFilter & { createdById?: string; tenantId?: string } = {
         tenantId,
         ...(actualCreatedById && { createdById: actualCreatedById }),
-        ...(startDate && { startDate: new Date(startDate) }),
-        ...(endDate && { endDate: new Date(endDate) }),
+        ...(startDate && startDate.trim() && { startDate: new Date(startDate) }),
+        ...(endDate && endDate.trim() && { endDate: new Date(endDate) }),
       };
 
       const statistics = await this.statisticsService.getPurchaseOrderStatistics(filters);
@@ -90,9 +90,9 @@ export class StatisticsController {
   @ApiQuery({ name: "requesterId", required: false, type: String })
   @ApiResponseDoc({ status: 200, description: "PR statistics retrieved successfully" })
   async getPurchaseRequisitionStatistics(
-    @Query("startDate") startDate?: string,
-    @Query("endDate") endDate?: string,
-    @Query("requesterId") requesterId?: string,
+    @Query("startDate") startDate: string = "",
+    @Query("endDate") endDate: string = "",
+    @Query("requesterId") requesterId: string = "",
     @Request() req: any,
   ): Promise<ApiResponse> {
     try {
@@ -100,13 +100,13 @@ export class StatisticsController {
       
       // For non-admin users, filter by their own records
       const actualRequesterId = 
-        req.user.role === UserRole.ADMIN ? requesterId : req.user.id;
+        req.user.role === UserRole.ADMIN ? (requesterId || undefined) : req.user.id;
 
       const filters: DateRangeFilter & { requesterId?: string; tenantId?: string } = {
         tenantId,
         ...(actualRequesterId && { requesterId: actualRequesterId }),
-        ...(startDate && { startDate: new Date(startDate) }),
-        ...(endDate && { endDate: new Date(endDate) }),
+        ...(startDate && startDate.trim() && { startDate: new Date(startDate) }),
+        ...(endDate && endDate.trim() && { endDate: new Date(endDate) }),
       };
 
       const statistics = await this.statisticsService.getPurchaseRequisitionStatistics(filters);
@@ -138,23 +138,23 @@ export class StatisticsController {
   @ApiQuery({ name: "creatorId", required: false, type: String })
   @ApiResponseDoc({ status: 200, description: "Tender statistics retrieved successfully" })
   async getTenderStatistics(
-    @Query("startDate") startDate?: string,
-    @Query("endDate") endDate?: string,
-    @Query("creatorId") creatorId?: string,
+    @Query("startDate") startDate: string = "",
+    @Query("endDate") endDate: string = "",
+    @Query("creatorId") creatorId: string = "",
     @Request() req: any,
   ): Promise<ApiResponse> {
     try {
       const tenantId = req.user.tenantId;
       
       // For non-admin users, filter by their own records
-      const actualCreatorId = 
-        req.user.role === UserRole.ADMIN ? creatorId : req.user.id;
+      const actualCreatedById = 
+        req.user.role === UserRole.ADMIN ? (creatorId || undefined) : req.user.id;
 
-      const filters: DateRangeFilter & { creatorId?: string; tenantId?: string } = {
+      const filters: DateRangeFilter & { createdById?: string; tenantId?: string } = {
         tenantId,
-        ...(actualCreatorId && { creatorId: actualCreatorId }),
-        ...(startDate && { startDate: new Date(startDate) }),
-        ...(endDate && { endDate: new Date(endDate) }),
+        ...(actualCreatedById && { createdById: actualCreatedById }),
+        ...(startDate && startDate.trim() && { startDate: new Date(startDate) }),
+        ...(endDate && endDate.trim() && { endDate: new Date(endDate) }),
       };
 
       const statistics = await this.statisticsService.getTenderStatistics(filters);
@@ -185,8 +185,8 @@ export class StatisticsController {
   @ApiQuery({ name: "endDate", required: false, type: Date })
   @ApiResponseDoc({ status: 200, description: "Vendor performance statistics retrieved successfully" })
   async getVendorPerformanceStatistics(
-    @Query("startDate") startDate?: string,
-    @Query("endDate") endDate?: string,
+    @Query("startDate") startDate: string = "",
+    @Query("endDate") endDate: string = "",
     @Request() req: any,
   ): Promise<ApiResponse> {
     try {
@@ -194,8 +194,8 @@ export class StatisticsController {
 
       const filters: DateRangeFilter & { tenantId?: string } = {
         tenantId,
-        ...(startDate && { startDate: new Date(startDate) }),
-        ...(endDate && { endDate: new Date(endDate) }),
+        ...(startDate && startDate.trim() && { startDate: new Date(startDate) }),
+        ...(endDate && endDate.trim() && { endDate: new Date(endDate) }),
       };
 
       const statistics = await this.statisticsService.getVendorPerformanceStatistics(filters);
@@ -250,16 +250,16 @@ export class StatisticsController {
     }
   })
   async getDashboardSummary(
-    @Query("startDate") startDate?: string,
-    @Query("endDate") endDate?: string,
+    @Query("startDate") startDate: string = "",
+    @Query("endDate") endDate: string = "",
     @Request() req: any,
   ): Promise<ApiResponse> {
     try {
       const tenantId = req.user.tenantId;
 
       const filters: DateRangeFilter = {
-        ...(startDate && { startDate: new Date(startDate) }),
-        ...(endDate && { endDate: new Date(endDate) }),
+        ...(startDate && startDate.trim() && { startDate: new Date(startDate) }),
+        ...(endDate && endDate.trim() && { endDate: new Date(endDate) }),
       };
 
       const summary = await this.statisticsService.getDashboardSummary(tenantId, filters);
@@ -290,8 +290,8 @@ export class StatisticsController {
   @ApiQuery({ name: "endDate", required: false, type: Date })
   @ApiResponseDoc({ status: 200, description: "Complete statistics summary retrieved successfully" })
   async getComprehensiveStatistics(
-    @Query("startDate") startDate?: string,
-    @Query("endDate") endDate?: string,
+    @Query("startDate") startDate: string = "",
+    @Query("endDate") endDate: string = "",
     @Request() req: any,
   ): Promise<ApiResponse> {
     try {
@@ -301,8 +301,8 @@ export class StatisticsController {
 
       const baseFilters = {
         tenantId,
-        ...(startDate && { startDate: new Date(startDate) }),
-        ...(endDate && { endDate: new Date(endDate) }),
+        ...(startDate && startDate.trim() && { startDate: new Date(startDate) }),
+        ...(endDate && endDate.trim() && { endDate: new Date(endDate) }),
       };
 
       const [

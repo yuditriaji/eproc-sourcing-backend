@@ -50,20 +50,26 @@ export class PurchaseOrderController {
   @ApiQuery({ name: "contractId", required: false })
   @ApiResponseDoc({ status: 200, description: "POs retrieved successfully" })
   async findAll(
-    @Query("page") page?: string,
-    @Query("limit") limit?: string,
-    @Query("status") status?: string,
-    @Query("createdById") createdById?: string,
-    @Query("contractId") contractId?: string,
+    @Query("page") page: string = "1",
+    @Query("limit") limit: string = "10",
+    @Query("status") status: string = "",
+    @Query("createdById") createdById: string = "",
+    @Query("contractId") contractId: string = "",
     @Request() req: any,
   ) {
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 10;
     
     // For non-admin users, show only their own POs
-    const filterCreatedById = req.user.role === UserRole.ADMIN ? createdById : req.user.id;
+    const filterCreatedById = req.user.role === UserRole.ADMIN ? (createdById || undefined) : req.user.id;
     
-    return this.poService.findAll(pageNum, limitNum, status as any, filterCreatedById, contractId);
+    return this.poService.findAll(
+      pageNum, 
+      limitNum, 
+      status ? status as any : undefined, 
+      filterCreatedById, 
+      contractId || undefined
+    );
   }
 
   @Get(":id")

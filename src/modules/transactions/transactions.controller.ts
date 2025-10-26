@@ -35,19 +35,19 @@ export class TransactionsController {
   @ApiQuery({ name: "createdBy", required: false })
   @ApiResponseDoc({ status: 200, description: "PO statistics retrieved successfully" })
   async getPurchaseOrderStatistics(
-    @Query("period") period?: string,
-    @Query("year") year?: string,
-    @Query("month") month?: string,
-    @Query("status") status?: string,
-    @Query("createdBy") createdBy?: string,
+    @Query("period") period: string = "monthly",
+    @Query("year") year: string = "",
+    @Query("month") month: string = "",
+    @Query("status") status: string = "",
+    @Query("createdBy") createdBy: string = "",
     @Request() req: any,
   ) {
     const filters = {
       period: period || "monthly",
-      year: year ? parseInt(year) : new Date().getFullYear(),
-      month: month ? parseInt(month) : undefined,
-      status,
-      createdBy: req.user.role === UserRole.ADMIN ? createdBy : req.user.id,
+      year: year && year.trim() ? parseInt(year) : new Date().getFullYear(),
+      month: month && month.trim() ? parseInt(month) : undefined,
+      status: status || undefined,
+      createdBy: req.user.role === UserRole.ADMIN ? (createdBy || undefined) : req.user.id,
     };
 
     return this.transactionsService.getPurchaseOrderStatistics(filters);
@@ -63,19 +63,19 @@ export class TransactionsController {
   @ApiQuery({ name: "requestedBy", required: false })
   @ApiResponseDoc({ status: 200, description: "PR statistics retrieved successfully" })
   async getPurchaseRequisitionStatistics(
-    @Query("period") period?: string,
-    @Query("year") year?: string,
-    @Query("month") month?: string,
-    @Query("status") status?: string,
-    @Query("requestedBy") requestedBy?: string,
+    @Query("period") period: string = "monthly",
+    @Query("year") year: string = "",
+    @Query("month") month: string = "",
+    @Query("status") status: string = "",
+    @Query("requestedBy") requestedBy: string = "",
     @Request() req: any,
   ) {
     const filters = {
       period: period || "monthly",
-      year: year ? parseInt(year) : new Date().getFullYear(),
-      month: month ? parseInt(month) : undefined,
-      status,
-      requestedBy: req.user.role === UserRole.ADMIN ? requestedBy : req.user.id,
+      year: year && year.trim() ? parseInt(year) : new Date().getFullYear(),
+      month: month && month.trim() ? parseInt(month) : undefined,
+      status: status || undefined,
+      requestedBy: req.user.role === UserRole.ADMIN ? (requestedBy || undefined) : req.user.id,
     };
 
     return this.transactionsService.getPurchaseRequisitionStatistics(filters);
@@ -90,17 +90,17 @@ export class TransactionsController {
   @ApiQuery({ name: "status", required: false })
   @ApiResponseDoc({ status: 200, description: "Tender statistics retrieved successfully" })
   async getTenderStatistics(
-    @Query("period") period?: string,
-    @Query("year") year?: string,
-    @Query("month") month?: string,
-    @Query("status") status?: string,
+    @Query("period") period: string = "monthly",
+    @Query("year") year: string = "",
+    @Query("month") month: string = "",
+    @Query("status") status: string = "",
     @Request() req: any,
   ) {
     const filters = {
       period: period || "monthly",
-      year: year ? parseInt(year) : new Date().getFullYear(),
-      month: month ? parseInt(month) : undefined,
-      status,
+      year: year && year.trim() ? parseInt(year) : new Date().getFullYear(),
+      month: month && month.trim() ? parseInt(month) : undefined,
+      status: status || undefined,
       createdBy: req.user.role === UserRole.ADMIN ? undefined : req.user.id,
     };
 
@@ -123,7 +123,7 @@ export class TransactionsController {
   @ApiQuery({ name: "limit", required: false })
   @ApiResponseDoc({ status: 200, description: "Vendor performance statistics retrieved successfully" })
   async getVendorPerformance(
-    @Query("limit") limit?: string,
+    @Query("limit") limit: string = "10",
     @Request() req: any,
   ) {
     const limitNum = parseInt(limit) || 10;

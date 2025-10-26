@@ -367,9 +367,9 @@ export class TransactionsService {
         vendorId: po.vendorId,
         vendorName: vendor?.name || 'Unknown',
         totalPOs: po._count.vendorId,
-        totalValue: po._sum.assignedAmount || 0,
+        totalValue: Number(po._sum.assignedAmount || 0),
       };
-    }).sort((a, b) => b.totalValue - a.totalValue).slice(0, 10);
+    }).sort((a, b) => Number(b.totalValue) - Number(a.totalValue)).slice(0, 10);
   }
 
   private async getPendingPRApprovals(userId?: string) {

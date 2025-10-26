@@ -50,20 +50,26 @@ export class PurchaseRequisitionController {
   @ApiQuery({ name: "contractId", required: false })
   @ApiResponseDoc({ status: 200, description: "PRs retrieved successfully" })
   async findAll(
-    @Query("page") page?: string,
-    @Query("limit") limit?: string,
-    @Query("status") status?: string,
-    @Query("requesterId") requesterId?: string,
-    @Query("contractId") contractId?: string,
+    @Query("page") page: string = "1",
+    @Query("limit") limit: string = "10",
+    @Query("status") status: string = "",
+    @Query("requesterId") requesterId: string = "",
+    @Query("contractId") contractId: string = "",
     @Request() req: any,
   ) {
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 10;
     
     // For non-admin users, show only their own PRs
-    const filterRequesterId = req.user.role === UserRole.ADMIN ? requesterId : req.user.id;
+    const filterRequesterId = req.user.role === UserRole.ADMIN ? (requesterId || undefined) : req.user.id;
     
-    return this.prService.findAll(pageNum, limitNum, status as any, filterRequesterId, contractId);
+    return this.prService.findAll(
+      pageNum, 
+      limitNum, 
+      status ? status as any : undefined, 
+      filterRequesterId, 
+      contractId || undefined
+    );
   }
 
   @Get(":id")
