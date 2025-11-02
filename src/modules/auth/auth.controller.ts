@@ -7,6 +7,8 @@ import {
   Res,
   HttpStatus,
   Get,
+  Patch,
+  Param,
   UseInterceptors,
   ClassSerializerInterceptor,
 } from "@nestjs/common";
@@ -282,6 +284,86 @@ export class AuthController {
   @ApiResponse({ status: 401, description: "Unauthorized" })
   async getProfile(@Req() req: Request) {
     return req.user as any;
+  }
+
+  @Patch("users/:userId/verify")
+  @UseGuards(AuthGuard("jwt"), RolesGuard)
+  @Roles("ADMIN")
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Verify user account (Admin only)",
+    description: "Verify a user account, typically used for VENDOR accounts that require manual verification",
+  })
+  @ApiResponse({ status: 200, description: "User verified successfully" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @ApiResponse({ status: 403, description: "Forbidden - Admin role required" })
+  @ApiResponse({ status: 404, description: "User not found" })
+  async verifyUser(
+    @Param("userId") userId: string,
+    @Req() req: Request,
+  ) {
+    const ipAddress = req.ip || req.connection.remoteAddress || "unknown";
+    const userAgent = req.get("User-Agent") || "unknown";
+
+    let tenantId = this.tenantContext.getTenantId();
+    if (!tenantId) {
+      const slug = (req.params as any)?.tenant as string | undefined;
+      tenantId = await this.tenantService.resolveTenantId(slug);
+    }
+
+    const result = await this.authService.verifyUser(
+      userId,
+      tenantId,
+      (req.user as any)?.userId,
+      ipAddress,
+      userAgent,
+    );
+
+    return result;
+  }
+
+  @Get("users")
+  @UseGuards(AuthGuard("jwt"), RolesGuard)
+  @Roles("ADMIN")
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Get all registered users (Admin only)",
+    description: "Retrieve all registered users in the system",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Users retrieved successfully",
+    schema: {
+      example: {
+        users: [
+          {
+            id: "user-id",
+            email: "user@example.com",
+            username: "username",
+            firstName: "John",
+            lastName: "Doe",
+            role: "USER",
+            department: "IT",
+            isActive: true,
+            isVerified: true,
+            createdAt: "2024-01-01T00:00:00.000Z",
+          },
+        ],
+        total: 10,
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @ApiResponse({ status: 403, description: "Forbidden - Admin role required" })
+  async getAllUsers(@Req() req: Request) {
+    let tenantId = this.tenantContext.getTenantId();
+    if (!tenantId) {
+      const slug = (req.params as any)?.tenant as string | undefined;
+      tenantId = await this.tenantService.resolveTenantId(slug);
+    }
+
+    const result = await this.authService.getAllUsers(tenantId);
+    return result;
   }
 
   @Get("roles/config")

@@ -316,13 +316,93 @@ export class AuthService {
     }
 
     if (!user.isVerified) {
-      throw new ForbiddenException(
+      const exception = new ForbiddenException(
         "Account created but requires verification. Please contact administrator.",
       );
+      // Add user info to exception response for client to use
+      (exception as any).response = {
+        statusCode: 403,
+        message: "Account created but requires verification. Please contact administrator.",
+        error: "Forbidden",
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      };
+      throw exception;
     }
 
     // Generate tokens for verified users
     return this.generateTokensForUser(user, ipAddress, userAgent);
+  }
+
+  async verifyUser(
+    userId: string,
+    tenantId: string,
+    adminUserId: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<{ message: string; user: any }> {
+    const user = await this.prismaService.user.findFirst({
+      where: {
+        id: userId,
+        tenantId,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    if (user.isVerified) {
+      return {
+        message: "User is already verified",
+        user: {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          role: user.role,
+          isVerified: user.isVerified,
+        },
+      };
+    }
+
+    // Update user to verified
+    const updatedUser = await this.prismaService.user.update({
+      where: { id: userId },
+      data: {
+        isVerified: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isVerified: true,
+      },
+    });
+
+    // Log verification
+    try {
+      await this.auditService.log({
+        userId: adminUserId,
+        action: "UPDATE",
+        targetType: "User",
+        targetId: userId,
+        oldValues: { isVerified: false },
+        newValues: { isVerified: true },
+        ipAddress,
+        userAgent,
+      });
+    } catch (error) {
+      console.error("Failed to log user verification audit:", error);
+    }
+
+    return {
+      message: "User verified successfully",
+      user: updatedUser,
+    };
   }
 
   async refreshToken(
@@ -437,6 +517,37 @@ export class AuthService {
         metadata: { reason: "invalid_token" },
       });
     }
+  }
+
+  async getAllUsers(tenantId: string): Promise<{ users: any[]; total: number }> {
+    const users = await this.prismaService.user.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        department: true,
+        phone: true,
+        isActive: true,
+        isVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return {
+      users,
+      total: users.length,
+    };
   }
 
   private async generateTokensForUser(
