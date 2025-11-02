@@ -91,6 +91,12 @@ import { PaymentService } from "./modules/payment/payment.service";
 import { QuotationController } from "./modules/quotation/quotation.controller";
 import { QuotationService } from "./modules/quotation/quotation.service";
 
+// Role Config Module
+import { RoleConfigModule } from "./modules/role-config/role-config.module";
+
+// User Role Module
+import { UserRoleModule } from "./modules/user-role/user-role.module";
+
 // Guards
 import { RolesGuard } from "./common/guards/roles.guard";
 import { CaslAbilityGuard } from "./common/guards/casl-ability.guard";
@@ -165,6 +171,10 @@ const mongooseImports = process.env.MONGODB_URL
 
     // MongoDB for document storage (enabled only if MONGODB_URL is set)
     ...mongooseImports,
+
+    // RBAC Modules
+    RoleConfigModule,
+    UserRoleModule,
   ],
   controllers: [
     AuthController,

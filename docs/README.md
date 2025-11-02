@@ -1,3 +1,124 @@
+# Documentation
+
+This directory contains comprehensive documentation for the E-Procurement Sourcing Backend system.
+
+## 📚 Documentation Structure
+
+### Core Documentation
+
+**[TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md)** - **START HERE**
+- Complete technical overview of the system
+- Architecture and design patterns
+- Data model and schema details
+- Business process flows
+- Configuration-driven design philosophy
+- Security and authentication
+- Deployment and operations guide
+- Testing strategy
+
+### API Endpoint Documentation
+
+**[master-data-endpoints.md](./master-data-endpoints.md)**
+- Vendor management API
+- Organizational structure (Company Code, Plant, Purchasing Org, etc.)
+- Currency management
+- Master data hierarchy and validation
+
+**[transaction-endpoints.md](./transaction-endpoints.md)**
+- Complete procurement workflow endpoints
+- Tender and bid management
+- Purchase Requisition (PR) → Purchase Order (PO) flow
+- Goods Receipt management
+- Workflow orchestration APIs
+
+**[INVOICE_PAYMENT_QUOTATION_ENDPOINTS.md](./INVOICE_PAYMENT_QUOTATION_ENDPOINTS.md)**
+- Invoice processing and approval
+- Payment execution
+- Quotation management
+
+**[budget-control.md](./budget-control.md)**
+- Budget allocation and tracking
+- Budget transfers
+- Real-time commitment management
+
+**[configuration-api.md](./configuration-api.md)**
+- Tenant configuration management
+- Process configuration
+- RBAC configuration
+- Bulk organizational unit setup
+
+## 🚀 Quick Start
+
+1. **For Developers**: Start with [TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md)
+2. **For API Integration**: Review the endpoint documentation files
+3. **For Configuration**: See [configuration-api.md](./configuration-api.md)
+4. **For Testing**: Check [TECHNICAL_DOCUMENTATION.md#testing-strategy](./TECHNICAL_DOCUMENTATION.md#testing-strategy)
+
+## 📖 Documentation by Role
+
+### Backend Developers
+- [TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md) - Complete system architecture
+- [configuration-api.md](./configuration-api.md) - Configuration management
+
+### API Consumers / Frontend Developers
+- [master-data-endpoints.md](./master-data-endpoints.md) - Master data operations
+- [transaction-endpoints.md](./transaction-endpoints.md) - Transaction workflows
+- [INVOICE_PAYMENT_QUOTATION_ENDPOINTS.md](./INVOICE_PAYMENT_QUOTATION_ENDPOINTS.md) - Financial operations
+
+### System Administrators
+- [TECHNICAL_DOCUMENTATION.md#deployment--operations](./TECHNICAL_DOCUMENTATION.md#deployment--operations)
+- [budget-control.md](./budget-control.md) - Budget management
+
+### Business Analysts
+- [TECHNICAL_DOCUMENTATION.md#business-processes](./TECHNICAL_DOCUMENTATION.md#business-processes)
+- [transaction-endpoints.md](./transaction-endpoints.md) - Procurement workflows
+
+## 🔧 Additional Resources
+
+### Testing Documentation
+See `testing/` directory for detailed test reports and execution logs.
+
+### UI/UX Documentation
+See `ui-ux/` directory for user interface specifications and design guidelines.
+
+### Swagger/OpenAPI
+Interactive API documentation available at:
+```
+https://eproc-sourcing-backend.onrender.com/api/v1/docs
+```
+
+## 📝 Documentation Standards
+
+All endpoint documentation follows this structure:
+- **Endpoint**: HTTP method and URL
+- **Authentication**: Required roles
+- **Request Body**: Example payload
+- **Response**: Expected response format
+- **Error Codes**: Possible error scenarios
+- **Business Rules**: Validation and workflow rules
+
+## 🔄 Recent Updates
+
+**October 26, 2025**:
+- Consolidated all technical documentation into single comprehensive guide
+- Removed temporary test reports and progress files
+- Streamlined endpoint documentation
+- Added vendor verification flow documentation
+- Updated configuration-driven architecture details
+
+## 📞 Support
+
+For questions or clarifications:
+- Check the relevant endpoint documentation file
+- Review [TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md)
+- Refer to `../WARP.md` for development guidelines
+- Check `../README.md` for project setup
+
+---
+
+**Last Updated**: October 26, 2025  
+**Documentation Version**: 2.0
+
 # 🚀 E-Procurement Sourcing Backend
 
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)

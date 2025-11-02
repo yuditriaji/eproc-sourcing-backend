@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from "@nestjs/common";
+import { UserRoleEnum } from "@prisma/client";
 import { PrismaService } from "../../database/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { EventService } from "../events/event.service";
@@ -273,7 +274,7 @@ export class PurchaseRequisitionService {
       const user = await this.prisma.user.findFirst({ where: { id: userId } });
       if (
         !user ||
-        ![UserRole.ADMIN, UserRole.MANAGER, UserRole.APPROVER].includes(
+        ![UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER].includes(
           user.role as any,
         )
       ) {
@@ -325,7 +326,7 @@ export class PurchaseRequisitionService {
     });
     if (
       !approver ||
-      ![UserRole.ADMIN, UserRole.MANAGER, UserRole.APPROVER].includes(
+      ![UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER].includes(
         approver.role as any,
       )
     ) {
@@ -393,7 +394,7 @@ export class PurchaseRequisitionService {
       const user = await this.prisma.user.findFirst({ where: { id: userId } });
       if (
         !user ||
-        ![UserRole.ADMIN, UserRole.MANAGER].includes(user.role as any)
+        ![UserRoleEnum.ADMIN, UserRoleEnum.MANAGER].includes(user.role as any)
       ) {
         throw new ForbiddenException("You can only cancel your own PRs");
       }
@@ -449,7 +450,7 @@ export class PurchaseRequisitionService {
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
       if (
         !user ||
-        ![UserRole.ADMIN, UserRole.MANAGER].includes(user.role as any)
+        ![UserRoleEnum.ADMIN, UserRoleEnum.MANAGER].includes(user.role as any)
       ) {
         throw new ForbiddenException("You can only delete your own PRs");
       }
@@ -545,7 +546,7 @@ export class PurchaseRequisitionService {
     const user = await this.prisma.user.findFirst({ where: { id: userId } });
     if (
       !user ||
-      ![UserRole.ADMIN, UserRole.MANAGER, UserRole.APPROVER].includes(
+      ![UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER].includes(
         user.role as any,
       )
     ) {
@@ -558,7 +559,7 @@ export class PurchaseRequisitionService {
       where: {
         status: PRStatus.PENDING,
         deletedAt: null,
-        ...(user.role === UserRole.MANAGER &&
+        ...(user.role === UserRoleEnum.MANAGER &&
           user.department && {
             requester: {
               department: user.department,

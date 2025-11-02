@@ -10,6 +10,7 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+import { UserRoleEnum } from "@prisma/client";
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -37,7 +38,7 @@ export class InvoiceController {
   constructor(private readonly invoiceService: InvoiceService) {}
 
   @Post()
-  @Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.FINANCE)
+  @Roles(UserRoleEnum.VENDOR, UserRoleEnum.ADMIN, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: 'Create a new invoice' })
   @ApiResponse({ status: 201, description: 'Invoice created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -48,7 +49,7 @@ export class InvoiceController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.VENDOR, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.VENDOR, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: 'Get all invoices' })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
@@ -77,7 +78,7 @@ export class InvoiceController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.VENDOR, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.VENDOR, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: 'Get invoice by ID' })
   @ApiResponse({ status: 200, description: 'Invoice retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
@@ -86,7 +87,7 @@ export class InvoiceController {
   }
 
   @Get(':id/items')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.VENDOR, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.VENDOR, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: 'Get invoice items' })
   @ApiResponse({ status: 200, description: 'Invoice items retrieved' })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
@@ -96,7 +97,7 @@ export class InvoiceController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.VENDOR)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.VENDOR)
   @ApiOperation({ summary: 'Update invoice' })
   @ApiResponse({ status: 200, description: 'Invoice updated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -115,7 +116,7 @@ export class InvoiceController {
   }
 
   @Patch(':id/approve')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: 'Approve invoice' })
   @ApiResponse({ status: 200, description: 'Invoice approved successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -134,7 +135,7 @@ export class InvoiceController {
   }
 
   @Patch(':id/status')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: 'Update invoice status' })
   @ApiResponse({ status: 200, description: 'Status updated successfully' })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
@@ -152,7 +153,7 @@ export class InvoiceController {
   }
 
   @Patch(':id/dispute')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: 'Dispute invoice' })
   @ApiResponse({ status: 200, description: 'Invoice disputed successfully' })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
@@ -170,7 +171,7 @@ export class InvoiceController {
   }
 
   @Patch(':id/cancel')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: 'Cancel invoice' })
   @ApiResponse({ status: 200, description: 'Invoice cancelled successfully' })
   @ApiResponse({ status: 400, description: 'Cannot cancel paid invoice' })
@@ -189,7 +190,7 @@ export class InvoiceController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: 'Delete invoice' })
   @ApiResponse({ status: 200, description: 'Invoice deleted successfully' })
   @ApiResponse({ status: 400, description: 'Cannot delete approved/paid invoice' })

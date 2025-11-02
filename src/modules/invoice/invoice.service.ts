@@ -14,7 +14,7 @@ import {
   InvoiceStatus,
   Prisma,
   Invoice,
-  UserRole,
+  UserRoleEnum,
   POStatus,
 } from '@prisma/client';
 
@@ -186,7 +186,7 @@ export class InvoiceService {
 
   async findAll(
     tenantId: string,
-    role: UserRole,
+    role: UserRoleEnum,
     userId: string,
     page: number = 1,
     limit: number = 20,
@@ -204,7 +204,7 @@ export class InvoiceService {
 
     // Vendors can only see their invoices (invoice.vendorId should match related vendor)
     // Note: This assumes vendors are linked via vendorId field in invoices
-    if (role === UserRole.VENDOR && vendorId) {
+    if (role === UserRoleEnum.VENDOR && vendorId) {
       where.vendorId = vendorId;
     }
 

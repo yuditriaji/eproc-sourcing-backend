@@ -40,6 +40,7 @@ model Tenant {
   refreshTokens        RefreshToken[]
   notifications        Notification[]
   workflowSteps        WorkflowStep[]
+  userRoles            UserRole[]
   tenantKeys           TenantKey[]
   outbox               Outbox[]
   // Basis relations
@@ -99,7 +100,7 @@ model User {
   password             String
   firstName            String?
   lastName             String?
-  role                 UserRole              @default(BUYER)
+  role                 UserRoleEnum          @default(BUYER)
   abilities            Json?
   department           String?
   isActive             Boolean               @default(true)
@@ -118,6 +119,7 @@ model User {
   purchaseRequisitions PurchaseRequisition[]
   createdTenders       Tender[]              @relation("TenderCreator")
   tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles            UserRole[]            @relation("UserRoles")
 
   @@unique([tenantId, email])
   @@unique([tenantId, username])
@@ -910,19 +912,38 @@ model PurchasingOrgAssignment {
 }
 
 model RoleConfig {
-  id          String   @id @default(cuid())
+  id          String     @id @default(cuid())
   tenantId    String
   roleName    String
   permissions Json
   description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles   UserRole[] @relation("RoleConfigUserRoles")
 
   @@unique([tenantId, roleName])
   @@index([tenantId])
   @@map("role_configs")
+}
+
+model UserRole {
+  id         String     @id @default(cuid())
+  tenantId   String
+  userId     String
+  roleId     String
+  assignedAt DateTime   @default(now())
+  assignedBy String?
+  expiresAt  DateTime?
+  user       User       @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
+  roleConfig RoleConfig @relation("RoleConfigUserRoles", fields: [roleId], references: [id], onDelete: Cascade)
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, roleId])
+  @@index([tenantId, userId])
+  @@index([tenantId, roleId])
+  @@map("user_roles")
 }
 
 model RefreshToken {
@@ -966,7 +987,7 @@ model WorkflowStep {
   stepName         String
   stepOrder        Int
   conditions       Json?
-  assignedRole     UserRole?
+  assignedRole     UserRoleEnum?
   assignedUserId   String?
   requiresApproval Boolean   @default(false)
   approvalCount    Int       @default(1)
@@ -981,7 +1002,7 @@ model WorkflowStep {
   @@map("workflow_steps")
 }
 
-enum UserRole {
+enum UserRoleEnum {
   ADMIN
   USER
   BUYER

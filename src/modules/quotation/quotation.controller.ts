@@ -13,7 +13,7 @@ import {
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRoleEnum } from '@prisma/client';
 import {
   QuotationService,
   CreateQuotationDto,
@@ -35,7 +35,7 @@ export class QuotationController {
   constructor(private readonly quotationService: QuotationService) {}
 
   @Post()
-  @Roles(UserRole.VENDOR, UserRole.ADMIN)
+  @Roles(UserRoleEnum.VENDOR, UserRoleEnum.ADMIN)
   @ApiOperation({ summary: 'Create a new quotation' })
   @ApiResponse({ status: 201, description: 'Quotation created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -44,7 +44,7 @@ export class QuotationController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.USER, UserRole.VENDOR, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.USER, UserRoleEnum.VENDOR, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: 'Get all quotations' })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
@@ -70,7 +70,7 @@ export class QuotationController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.USER, UserRole.VENDOR, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.USER, UserRoleEnum.VENDOR, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: 'Get quotation by ID' })
   @ApiResponse({
     status: 200,
@@ -82,7 +82,7 @@ export class QuotationController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.USER, UserRole.VENDOR)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.USER, UserRoleEnum.VENDOR)
   @ApiOperation({ summary: 'Update quotation' })
   @ApiResponse({
     status: 200,
@@ -103,7 +103,7 @@ export class QuotationController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRoleEnum.ADMIN)
   @ApiOperation({ summary: 'Delete quotation' })
   @ApiResponse({
     status: 200,

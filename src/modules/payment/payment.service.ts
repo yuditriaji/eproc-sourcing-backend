@@ -5,6 +5,7 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
+import { UserRoleEnum } from "@prisma/client";
 import { PrismaService } from '../../database/prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { EventService } from '../events/event.service';
@@ -167,7 +168,7 @@ export class PaymentService {
 
   async findAll(
     tenantId: string,
-    role: UserRole,
+    role: UserRoleEnum,
     userId: string,
     page: number = 1,
     limit: number = 20,
@@ -184,7 +185,7 @@ export class PaymentService {
     };
 
     // Vendors can only see payments related to their invoices
-    if (role === UserRole.VENDOR) {
+    if (role === UserRoleEnum.VENDOR) {
       where.invoice = {
         vendorId: userId,
       };

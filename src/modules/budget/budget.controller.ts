@@ -15,7 +15,7 @@ import { BudgetService } from './budget.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRoleEnum } from '@prisma/client';
 import {
   ApiTags,
   ApiOperation,
@@ -43,7 +43,7 @@ export class BudgetController {
   constructor(private readonly budgetService: BudgetService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER)
   @UsePipes(new ZodValidationPipe(CreateBudgetDtoSchema))
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -72,7 +72,7 @@ export class BudgetController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.MANAGER, UserRole.USER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER, UserRoleEnum.USER)
   @ApiOperation({
     summary: 'Get all budgets',
     description:
@@ -91,7 +91,7 @@ export class BudgetController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.MANAGER, UserRole.USER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER, UserRoleEnum.USER)
   @ApiOperation({
     summary: 'Get budget details',
     description:
@@ -108,7 +108,7 @@ export class BudgetController {
   }
 
   @Post(':id/allocate')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER)
   @UsePipes(new ZodValidationPipe(AllocateBudgetDtoSchema))
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -132,7 +132,7 @@ export class BudgetController {
   }
 
   @Post('transfer')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER)
   @UsePipes(new ZodValidationPipe(TransferBudgetDtoSchema))
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -159,7 +159,7 @@ export class BudgetController {
   }
 
   @Get(':id/usage')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.MANAGER, UserRole.USER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER, UserRoleEnum.USER)
   @UsePipes(new ZodValidationPipe(BudgetUsageQueryDtoSchema))
   @ApiOperation({
     summary: 'Get budget usage report',

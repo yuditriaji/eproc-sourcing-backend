@@ -10,6 +10,7 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+import { UserRoleEnum } from "@prisma/client";
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -37,7 +38,7 @@ export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: 'Create a new payment' })
   @ApiResponse({ status: 201, description: 'Payment created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -48,7 +49,7 @@ export class PaymentController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.VENDOR, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.VENDOR, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: 'Get all payments' })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
@@ -77,7 +78,7 @@ export class PaymentController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.VENDOR, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.VENDOR, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: 'Get payment by ID' })
   @ApiResponse({ status: 200, description: 'Payment retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Payment not found' })
@@ -86,7 +87,7 @@ export class PaymentController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: 'Update payment' })
   @ApiResponse({ status: 200, description: 'Payment updated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -105,7 +106,7 @@ export class PaymentController {
   }
 
   @Patch(':id/approve')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: 'Approve payment' })
   @ApiResponse({ status: 200, description: 'Payment approved successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -124,7 +125,7 @@ export class PaymentController {
   }
 
   @Patch(':id/process')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: 'Process payment' })
   @ApiResponse({ status: 200, description: 'Payment processed successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -143,7 +144,7 @@ export class PaymentController {
   }
 
   @Patch(':id/receive')
-  @Roles(UserRole.VENDOR)
+  @Roles(UserRoleEnum.VENDOR)
   @ApiOperation({ summary: 'Mark payment as received (vendor)' })
   @ApiResponse({ status: 200, description: 'Payment receipt recorded' })
   @ApiResponse({ status: 404, description: 'Payment not found' })
@@ -161,7 +162,7 @@ export class PaymentController {
   }
 
   @Patch(':id/fail')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: 'Mark payment as failed' })
   @ApiResponse({ status: 200, description: 'Payment marked as failed' })
   @ApiResponse({ status: 404, description: 'Payment not found' })
@@ -179,7 +180,7 @@ export class PaymentController {
   }
 
   @Patch(':id/cancel')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: 'Cancel payment' })
   @ApiResponse({ status: 200, description: 'Payment cancelled successfully' })
   @ApiResponse({ status: 400, description: 'Cannot cancel processed payment' })
@@ -198,7 +199,7 @@ export class PaymentController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: 'Delete payment' })
   @ApiResponse({ status: 200, description: 'Payment deleted successfully' })
   @ApiResponse({

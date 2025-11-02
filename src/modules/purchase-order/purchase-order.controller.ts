@@ -13,7 +13,7 @@ import {
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
-import { UserRole } from "@prisma/client";
+import { UserRoleEnum } from "@prisma/client";
 import { PurchaseOrderService, CreatePODto, UpdatePODto, ApprovePODto } from "./purchase-order.service";
 import {
   ApiTags,
@@ -31,7 +31,7 @@ export class PurchaseOrderController {
   constructor(private readonly poService: PurchaseOrderService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Create a new Purchase Order" })
   @ApiResponseDoc({ status: 201, description: "PO created successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -42,7 +42,7 @@ export class PurchaseOrderController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: "Get all Purchase Orders" })
   @ApiQuery({ name: "page", required: false })
   @ApiQuery({ name: "limit", required: false })
@@ -61,7 +61,7 @@ export class PurchaseOrderController {
     const limitNum = parseInt(limit) || 10;
     
     // For non-admin users, show only their own POs
-    const filterCreatedById = req.user.role === UserRole.ADMIN ? (createdById || undefined) : req.user.id;
+    const filterCreatedById = req.user.role === UserRoleEnum.ADMIN ? (createdById || undefined) : req.user.id;
     
     return this.poService.findAll(
       pageNum, 
@@ -73,7 +73,7 @@ export class PurchaseOrderController {
   }
 
   @Get(":id")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: "Get Purchase Order by ID" })
   @ApiResponseDoc({ status: 200, description: "PO retrieved successfully" })
   @ApiResponseDoc({ status: 404, description: "PO not found" })
@@ -82,7 +82,7 @@ export class PurchaseOrderController {
   }
 
   @Patch(":id")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: "Update Purchase Order" })
   @ApiResponseDoc({ status: 200, description: "PO updated successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -96,7 +96,7 @@ export class PurchaseOrderController {
   }
 
   @Post(":id/approve")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.APPROVER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.APPROVER)
   @ApiOperation({ summary: "Approve or reject Purchase Order" })
   @ApiResponseDoc({ status: 200, description: "PO approval processed successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -110,7 +110,7 @@ export class PurchaseOrderController {
   }
 
   @Post(":id/vendors")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Add vendors to Purchase Order" })
   @ApiResponseDoc({ status: 200, description: "Vendors added successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -125,7 +125,7 @@ export class PurchaseOrderController {
   }
 
   @Delete(":id/vendors/:vendorId")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Remove vendor from Purchase Order" })
   @ApiResponseDoc({ status: 200, description: "Vendor removed successfully" })
   @ApiResponseDoc({ status: 404, description: "PO or vendor not found" })
@@ -139,7 +139,7 @@ export class PurchaseOrderController {
   }
 
   @Delete(":id")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Delete Purchase Order" })
   @ApiResponseDoc({ status: 200, description: "PO deleted successfully" })
   @ApiResponseDoc({ status: 404, description: "PO not found" })
@@ -149,16 +149,16 @@ export class PurchaseOrderController {
   }
 
   @Get("statistics/summary")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: "Get Purchase Order statistics" })
   @ApiResponseDoc({ status: 200, description: "Statistics retrieved successfully" })
   async getStatistics(@Request() req: any) {
-    const createdById = req.user.role === UserRole.ADMIN ? undefined : req.user.id;
+    const createdById = req.user.role === UserRoleEnum.ADMIN ? undefined : req.user.id;
     return this.poService.getPOStatistics(createdById);
   }
 
   @Get("pending/approvals")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.APPROVER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.APPROVER)
   @ApiOperation({ summary: "Get pending approval POs for current user" })
   @ApiResponseDoc({ status: 200, description: "Pending approvals retrieved successfully" })
   async getPendingApprovals(@Request() req: any) {

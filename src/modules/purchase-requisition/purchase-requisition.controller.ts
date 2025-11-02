@@ -13,7 +13,7 @@ import {
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
-import { UserRole } from "@prisma/client";
+import { UserRoleEnum } from "@prisma/client";
 import { PurchaseRequisitionService, CreatePRDto, UpdatePRDto } from "./purchase-requisition.service";
 import {
   ApiTags,
@@ -31,7 +31,7 @@ export class PurchaseRequisitionController {
   constructor(private readonly prService: PurchaseRequisitionService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Create a new Purchase Requisition" })
   @ApiResponseDoc({ status: 201, description: "PR created successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -42,7 +42,7 @@ export class PurchaseRequisitionController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: "Get all Purchase Requisitions" })
   @ApiQuery({ name: "page", required: false })
   @ApiQuery({ name: "limit", required: false })
@@ -61,7 +61,7 @@ export class PurchaseRequisitionController {
     const limitNum = parseInt(limit) || 10;
     
     // For non-admin users, show only their own PRs
-    const filterRequesterId = req.user.role === UserRole.ADMIN ? (requesterId || undefined) : req.user.id;
+    const filterRequesterId = req.user.role === UserRoleEnum.ADMIN ? (requesterId || undefined) : req.user.id;
     
     return this.prService.findAll(
       pageNum, 
@@ -73,7 +73,7 @@ export class PurchaseRequisitionController {
   }
 
   @Get(":id")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: "Get Purchase Requisition by ID" })
   @ApiResponseDoc({ status: 200, description: "PR retrieved successfully" })
   @ApiResponseDoc({ status: 404, description: "PR not found" })
@@ -82,7 +82,7 @@ export class PurchaseRequisitionController {
   }
 
   @Patch(":id")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Update Purchase Requisition" })
   @ApiResponseDoc({ status: 200, description: "PR updated successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -96,7 +96,7 @@ export class PurchaseRequisitionController {
   }
 
   @Delete(":id")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Delete Purchase Requisition" })
   @ApiResponseDoc({ status: 200, description: "PR deleted successfully" })
   @ApiResponseDoc({ status: 404, description: "PR not found" })
@@ -106,16 +106,16 @@ export class PurchaseRequisitionController {
   }
 
   @Get(":id/statistics")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: "Get Purchase Requisition statistics" })
   @ApiResponseDoc({ status: 200, description: "Statistics retrieved successfully" })
   async getStatistics(@Request() req: any) {
-    const requesterId = req.user.role === UserRole.ADMIN ? undefined : req.user.id;
+    const requesterId = req.user.role === UserRoleEnum.ADMIN ? undefined : req.user.id;
     return this.prService.getPRStatistics(requesterId);
   }
 
   @Get("pending/approvals")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.APPROVER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER)
   @ApiOperation({ summary: "Get pending approval PRs for current user" })
   @ApiResponseDoc({ status: 200, description: "Pending approvals retrieved successfully" })
   async getPendingApprovals(@Request() req: any) {

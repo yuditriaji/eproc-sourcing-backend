@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { UserRoleEnum } from "@prisma/client";
 import { PrismaService } from "../../database/prisma/prisma.service";
 import { EventService } from "../events/event.service";
 import { ContractService } from "../contract/contract.service";
@@ -460,7 +461,7 @@ export class WorkflowService {
         where: { id: userId },
       });
 
-      if (!user || user.role !== UserRole.VENDOR) {
+      if (!user || user.role !== UserRoleEnum.VENDOR) {
         return {
           success: false,
           message: "Only vendor users can submit bids",

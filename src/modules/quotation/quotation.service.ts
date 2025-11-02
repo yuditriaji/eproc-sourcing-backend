@@ -1,7 +1,7 @@
 import {
   Injectable,
-  NotFoundException,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -10,7 +10,7 @@ import {
   QuotationStatus,
   Prisma,
   Quotation,
-  UserRole,
+  UserRoleEnum,
 } from '@prisma/client';
 
 export interface CreateQuotationDto {
@@ -94,7 +94,7 @@ export class QuotationService {
 
   async findAll(
     tenantId: string,
-    role: UserRole,
+    role: UserRoleEnum,
     userId: string,
     page: number = 1,
     limit: number = 20,
@@ -112,7 +112,7 @@ export class QuotationService {
     };
 
     // Vendors can only see their own quotations
-    if (role === UserRole.VENDOR) {
+    if (role === UserRoleEnum.VENDOR) {
       where.vendorId = userId;
     }
 

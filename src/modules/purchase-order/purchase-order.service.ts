@@ -6,6 +6,7 @@ import {
   Inject,
   forwardRef,
 } from "@nestjs/common";
+import { UserRoleEnum } from "@prisma/client";
 import { PrismaService } from "../../database/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { EventService } from "../events/event.service";
@@ -390,7 +391,7 @@ export class PurchaseOrderService {
       const user = await this.prisma.user.findFirst({ where: { id: userId } });
       if (
         !user ||
-        ![UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE].includes(
+        ![UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE].includes(
           user.role as any,
         )
       ) {
@@ -485,10 +486,10 @@ export class PurchaseOrderService {
     if (
       !approver ||
       ![
-        UserRole.ADMIN,
-        UserRole.MANAGER,
-        UserRole.FINANCE,
-        UserRole.APPROVER,
+        UserRoleEnum.ADMIN,
+        UserRoleEnum.MANAGER,
+        UserRoleEnum.FINANCE,
+        UserRoleEnum.APPROVER,
       ].includes(approver.role as any)
     ) {
       throw new ForbiddenException("You do not have permission to approve POs");
@@ -626,7 +627,7 @@ export class PurchaseOrderService {
       const user = await this.prisma.user.findFirst({ where: { id: userId } });
       if (
         !user ||
-        ![UserRole.ADMIN, UserRole.MANAGER].includes(user.role as any)
+        ![UserRoleEnum.ADMIN, UserRoleEnum.MANAGER].includes(user.role as any)
       ) {
         throw new ForbiddenException("You can only delete your own POs");
       }
@@ -742,10 +743,10 @@ export class PurchaseOrderService {
     if (
       !user ||
       ![
-        UserRole.ADMIN,
-        UserRole.MANAGER,
-        UserRole.FINANCE,
-        UserRole.APPROVER,
+        UserRoleEnum.ADMIN,
+        UserRoleEnum.MANAGER,
+        UserRoleEnum.FINANCE,
+        UserRoleEnum.APPROVER,
       ].includes(user.role as any)
     ) {
       return [];
@@ -756,7 +757,7 @@ export class PurchaseOrderService {
       where: {
         status: POStatus.DRAFT,
         deletedAt: null,
-        ...(user.role === UserRole.MANAGER &&
+        ...(user.role === UserRoleEnum.MANAGER &&
           user.department && {
             creator: {
               department: user.department,

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { UserRoleEnum } from "@prisma/client";
 import { PrismaService } from "../../database/prisma/prisma.service";
 import { UserRole, POStatus, PRStatus, TenderStatus } from "@prisma/client";
 
@@ -199,8 +200,8 @@ export class TransactionsService {
     }));
   }
 
-  async getDashboardSummary(userId: string, userRole: UserRole) {
-    const isAdmin = userRole === UserRole.ADMIN;
+  async getDashboardSummary(userId: string, userRole: UserRoleEnum) {
+    const isAdmin = userRole === UserRoleEnum.ADMIN;
     const userFilter = isAdmin ? {} : { createdById: userId };
     const requesterFilter = isAdmin ? {} : { requesterId: userId };
 

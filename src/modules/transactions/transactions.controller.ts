@@ -8,7 +8,7 @@ import {
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
-import { UserRole } from "@prisma/client";
+import { UserRoleEnum } from "@prisma/client";
 import { TransactionsService } from "./transactions.service";
 import {
   ApiTags,
@@ -26,7 +26,7 @@ export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
 
   @Get("statistics/purchase-orders")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.BUYER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.BUYER)
   @ApiOperation({ summary: "Get Purchase Order statistics" })
   @ApiQuery({ name: "period", required: false, enum: ["daily", "weekly", "monthly", "yearly"] })
   @ApiQuery({ name: "year", required: false })
@@ -47,14 +47,14 @@ export class TransactionsController {
       year: year && year.trim() ? parseInt(year) : new Date().getFullYear(),
       month: month && month.trim() ? parseInt(month) : undefined,
       status: status || undefined,
-      createdBy: req.user.role === UserRole.ADMIN ? (createdBy || undefined) : req.user.id,
+      createdBy: req.user.role === UserRoleEnum.ADMIN ? (createdBy || undefined) : req.user.id,
     };
 
     return this.transactionsService.getPurchaseOrderStatistics(filters);
   }
 
   @Get("statistics/purchase-requisitions")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.BUYER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.BUYER)
   @ApiOperation({ summary: "Get Purchase Requisition statistics" })
   @ApiQuery({ name: "period", required: false, enum: ["daily", "weekly", "monthly", "yearly"] })
   @ApiQuery({ name: "year", required: false })
@@ -75,14 +75,14 @@ export class TransactionsController {
       year: year && year.trim() ? parseInt(year) : new Date().getFullYear(),
       month: month && month.trim() ? parseInt(month) : undefined,
       status: status || undefined,
-      requestedBy: req.user.role === UserRole.ADMIN ? (requestedBy || undefined) : req.user.id,
+      requestedBy: req.user.role === UserRoleEnum.ADMIN ? (requestedBy || undefined) : req.user.id,
     };
 
     return this.transactionsService.getPurchaseRequisitionStatistics(filters);
   }
 
   @Get("statistics/tenders")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.BUYER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.BUYER)
   @ApiOperation({ summary: "Get Tender statistics" })
   @ApiQuery({ name: "period", required: false, enum: ["daily", "weekly", "monthly", "yearly"] })
   @ApiQuery({ name: "year", required: false })
@@ -101,24 +101,24 @@ export class TransactionsController {
       year: year && year.trim() ? parseInt(year) : new Date().getFullYear(),
       month: month && month.trim() ? parseInt(month) : undefined,
       status: status || undefined,
-      createdBy: req.user.role === UserRole.ADMIN ? undefined : req.user.id,
+      createdBy: req.user.role === UserRoleEnum.ADMIN ? undefined : req.user.id,
     };
 
     return this.transactionsService.getTenderStatistics(filters);
   }
 
   @Get("statistics/overview")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: "Get overall transaction overview" })
   @ApiResponseDoc({ status: 200, description: "Transaction overview retrieved successfully" })
   async getTransactionOverview(@Request() req: any) {
     return this.transactionsService.getTransactionOverview(
-      req.user.role === UserRole.ADMIN ? undefined : req.user.id
+      req.user.role === UserRoleEnum.ADMIN ? undefined : req.user.id
     );
   }
 
   @Get("statistics/vendor-performance")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.BUYER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.BUYER)
   @ApiOperation({ summary: "Get vendor performance statistics" })
   @ApiQuery({ name: "limit", required: false })
   @ApiResponseDoc({ status: 200, description: "Vendor performance statistics retrieved successfully" })
@@ -131,7 +131,7 @@ export class TransactionsController {
   }
 
   @Get("dashboard/summary")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.BUYER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.BUYER)
   @ApiOperation({ summary: "Get dashboard summary for current user" })
   @ApiResponseDoc({ status: 200, description: "Dashboard summary retrieved successfully" })
   async getDashboardSummary(@Request() req: any) {

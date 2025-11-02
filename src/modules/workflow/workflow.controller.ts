@@ -13,7 +13,7 @@ import {
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
-import { UserRole } from "@prisma/client";
+import { UserRoleEnum } from "@prisma/client";
 import { WorkflowService } from "./workflow.service";
 import { ApiResponse } from "../../common/interfaces/api-response.interface";
 import {
@@ -35,7 +35,7 @@ export class WorkflowController {
   // ============================================================================
 
   @Post("procurement/initiate/:contractId")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Initiate procurement workflow from a contract" })
   @ApiResponseDoc({ status: 200, description: "Workflow initiated" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -69,7 +69,7 @@ export class WorkflowController {
   }
 
   @Post("procurement/create-pr/:contractId")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Create Purchase Requisition (PR) from a contract" })
   @ApiResponseDoc({ status: 201, description: "PR created successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -120,7 +120,7 @@ export class WorkflowController {
   }
 
   @Post("procurement/approve-pr/:prId")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.APPROVER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER)
   @ApiOperation({ summary: "Approve or reject a Purchase Requisition (PR)" })
   @ApiResponseDoc({ status: 200, description: "PR approved/rejected" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -161,7 +161,7 @@ export class WorkflowController {
   }
 
   @Post("procurement/create-po/:prId")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Create Purchase Order (PO) from an approved PR" })
   @ApiResponseDoc({ status: 201, description: "PO created successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -202,7 +202,7 @@ export class WorkflowController {
   }
 
   @Post("procurement/approve-po/:poId")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.APPROVER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.APPROVER)
   @ApiOperation({ summary: "Approve or reject a Purchase Order (PO)" })
   @ApiResponseDoc({ status: 200, description: "PO approved/rejected" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -243,7 +243,7 @@ export class WorkflowController {
   }
 
   @Post("procurement/goods-receipt/:poId")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Create Goods Receipt for a PO" })
   @ApiResponseDoc({
     status: 201,
@@ -300,7 +300,7 @@ export class WorkflowController {
   // ============================================================================
 
   @Post("tender/create/:contractId")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Create Tender from a Contract" })
   @ApiResponseDoc({ status: 201, description: "Tender created successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -351,7 +351,7 @@ export class WorkflowController {
   }
 
   @Post("tender/publish/:tenderId")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Publish a Tender" })
   @ApiResponseDoc({ status: 200, description: "Tender published successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -385,7 +385,7 @@ export class WorkflowController {
   }
 
   @Post("tender/submit-bid/:tenderId")
-  @Roles(UserRole.VENDOR)
+  @Roles(UserRoleEnum.VENDOR)
   @ApiOperation({ summary: "Submit Bid for a Tender (Vendor)" })
   @ApiResponseDoc({ status: 201, description: "Bid submitted successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -430,7 +430,7 @@ export class WorkflowController {
   }
 
   @Post("tender/close/:tenderId")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Close a Tender" })
   @ApiResponseDoc({ status: 200, description: "Tender closed successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -465,7 +465,7 @@ export class WorkflowController {
   }
 
   @Post("tender/evaluate-bid/:bidId")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Evaluate a Bid" })
   @ApiResponseDoc({ status: 200, description: "Bid evaluated successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -507,7 +507,7 @@ export class WorkflowController {
   }
 
   @Post("tender/evaluate-bid/:tenderId/:bidId")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Evaluate a Bid with tender and bid ID" })
   @ApiResponseDoc({ status: 200, description: "Bid evaluated successfully" })
   @ApiResponseDoc({ status: 400, description: "Bad request" })
@@ -550,7 +550,7 @@ export class WorkflowController {
   }
 
   @Post("tender/award/:tenderId/:winningBidId")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER)
   async awardTender(
     @Param("tenderId") tenderId: string,
     @Param("winningBidId") winningBidId: string,
@@ -586,11 +586,11 @@ export class WorkflowController {
 
   @Get("status")
   @Roles(
-    UserRole.ADMIN,
-    UserRole.BUYER,
-    UserRole.MANAGER,
-    UserRole.FINANCE,
-    UserRole.VENDOR,
+    UserRoleEnum.ADMIN,
+    UserRoleEnum.BUYER,
+    UserRoleEnum.MANAGER,
+    UserRoleEnum.FINANCE,
+    UserRoleEnum.VENDOR,
   )
   @ApiOperation({ summary: "Get general workflow status" })
   @ApiResponseDoc({ status: 200, description: "Workflow status retrieved successfully" })
@@ -628,11 +628,11 @@ export class WorkflowController {
 
   @Get("status/:entityType/:entityId")
   @Roles(
-    UserRole.ADMIN,
-    UserRole.BUYER,
-    UserRole.MANAGER,
-    UserRole.FINANCE,
-    UserRole.VENDOR,
+    UserRoleEnum.ADMIN,
+    UserRoleEnum.BUYER,
+    UserRoleEnum.MANAGER,
+    UserRoleEnum.FINANCE,
+    UserRoleEnum.VENDOR,
   )
   @ApiOperation({ summary: "Get specific entity workflow status" })
   @ApiResponseDoc({ status: 200, description: "Entity workflow status retrieved successfully" })

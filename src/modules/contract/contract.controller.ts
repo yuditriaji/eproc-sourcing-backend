@@ -13,6 +13,7 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
 } from "@nestjs/common";
+import { UserRoleEnum } from "@prisma/client";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -38,7 +39,7 @@ export class ContractController {
   constructor(private readonly contractService: ContractService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Create a contract" })
   @ApiResponseDoc({ status: 201, description: "Contract created successfully" })
   @ApiResponseDoc({ status: 400, description: "Failed to create contract" })
@@ -78,11 +79,11 @@ export class ContractController {
 
   @Get()
   @Roles(
-    UserRole.ADMIN,
-    UserRole.BUYER,
-    UserRole.MANAGER,
-    UserRole.FINANCE,
-    UserRole.APPROVER,
+    UserRoleEnum.ADMIN,
+    UserRoleEnum.BUYER,
+    UserRoleEnum.MANAGER,
+    UserRoleEnum.FINANCE,
+    UserRoleEnum.APPROVER,
   )
   @ApiOperation({
     summary: "List contracts with pagination and optional filters",
@@ -103,7 +104,7 @@ export class ContractController {
     try {
       // Non-admin users can only see their own contracts unless they have specific permissions
       const actualOwnerId =
-        req.user.role === UserRole.ADMIN || req.user.role === UserRole.MANAGER
+        req.user.role === UserRoleEnum.ADMIN || req.user.role === UserRoleEnum.MANAGER
           ? ownerId
           : req.user.id;
 
@@ -137,7 +138,7 @@ export class ContractController {
   }
 
   @Get("statistics")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: "Get contract statistics" })
   @ApiResponseDoc({
     status: 200,
@@ -152,7 +153,7 @@ export class ContractController {
     try {
       // Non-admin users get their own statistics
       const actualOwnerId =
-        req.user.role === UserRole.ADMIN ? ownerId : req.user.id;
+        req.user.role === UserRoleEnum.ADMIN ? ownerId : req.user.id;
 
       const statistics =
         await this.contractService.getContractStatistics(actualOwnerId);
@@ -174,7 +175,7 @@ export class ContractController {
   }
 
   @Get("generate-number")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Generate a new contract number" })
   @ApiResponseDoc({ status: 200, description: "Contract number generated" })
   @ApiResponseDoc({ status: 401, description: "Unauthorized" })
@@ -202,11 +203,11 @@ export class ContractController {
 
   @Get(":id")
   @Roles(
-    UserRole.ADMIN,
-    UserRole.BUYER,
-    UserRole.MANAGER,
-    UserRole.FINANCE,
-    UserRole.APPROVER,
+    UserRoleEnum.ADMIN,
+    UserRoleEnum.BUYER,
+    UserRoleEnum.MANAGER,
+    UserRoleEnum.FINANCE,
+    UserRoleEnum.APPROVER,
   )
   @ApiOperation({ summary: "Get contract by ID" })
   @ApiResponseDoc({
@@ -237,7 +238,7 @@ export class ContractController {
   }
 
   @Patch(":id")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Update contract" })
   @ApiResponseDoc({ status: 200, description: "Contract updated successfully" })
   @ApiResponseDoc({ status: 400, description: "Failed to update contract" })
@@ -273,7 +274,7 @@ export class ContractController {
   }
 
   @Post(":id/vendors")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Add vendors to a contract" })
   @ApiResponseDoc({ status: 200, description: "Vendors added successfully" })
   @ApiResponseDoc({ status: 400, description: "Failed to add vendors" })
@@ -304,7 +305,7 @@ export class ContractController {
   }
 
   @Delete(":id/vendors/:vendorId")
-  @Roles(UserRole.ADMIN, UserRole.BUYER, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Remove a vendor from a contract" })
   @ApiResponseDoc({ status: 200, description: "Vendor removed successfully" })
   @ApiResponseDoc({ status: 400, description: "Failed to remove vendor" })
@@ -335,7 +336,7 @@ export class ContractController {
   }
 
   @Delete(":id")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Delete a contract" })
   @ApiResponseDoc({ status: 200, description: "Contract deleted successfully" })
   @ApiResponseDoc({ status: 400, description: "Failed to delete contract" })

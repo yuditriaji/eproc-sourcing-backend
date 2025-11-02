@@ -10,7 +10,7 @@ import {
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
-import { UserRole } from "@prisma/client";
+import { UserRoleEnum } from "@prisma/client";
 import { StatisticsService, DateRangeFilter } from "./statistics.service";
 import { ApiResponse } from "../../common/interfaces/api-response.interface";
 import {
@@ -29,7 +29,7 @@ export class StatisticsController {
   constructor(private readonly statisticsService: StatisticsService) {}
 
   @Get("purchase-orders")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.BUYER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.BUYER)
   @ApiOperation({ 
     summary: "Get Purchase Order statistics",
     description: "Comprehensive statistics for purchase orders including counts by status, values, and processing times"
@@ -52,7 +52,7 @@ export class StatisticsController {
       
       // For non-admin users, filter by their own records
       const actualCreatedById = 
-        req.user.role === UserRole.ADMIN ? (createdById || undefined) : req.user.id;
+        req.user.role === UserRoleEnum.ADMIN ? (createdById || undefined) : req.user.id;
 
       const filters: DateRangeFilter & { createdById?: string; tenantId?: string } = {
         tenantId,
@@ -80,7 +80,7 @@ export class StatisticsController {
   }
 
   @Get("purchase-requisitions")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.BUYER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.BUYER)
   @ApiOperation({ 
     summary: "Get Purchase Requisition statistics",
     description: "Comprehensive statistics for purchase requisitions including counts by status, values, and approval times"
@@ -100,7 +100,7 @@ export class StatisticsController {
       
       // For non-admin users, filter by their own records
       const actualRequesterId = 
-        req.user.role === UserRole.ADMIN ? (requesterId || undefined) : req.user.id;
+        req.user.role === UserRoleEnum.ADMIN ? (requesterId || undefined) : req.user.id;
 
       const filters: DateRangeFilter & { requesterId?: string; tenantId?: string } = {
         tenantId,
@@ -128,7 +128,7 @@ export class StatisticsController {
   }
 
   @Get("tenders")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.BUYER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.BUYER)
   @ApiOperation({ 
     summary: "Get Tender statistics",
     description: "Comprehensive statistics for tenders including counts by status, values, bid analytics, and award times"
@@ -148,7 +148,7 @@ export class StatisticsController {
       
       // For non-admin users, filter by their own records
       const actualCreatedById = 
-        req.user.role === UserRole.ADMIN ? (creatorId || undefined) : req.user.id;
+        req.user.role === UserRoleEnum.ADMIN ? (creatorId || undefined) : req.user.id;
 
       const filters: DateRangeFilter & { createdById?: string; tenantId?: string } = {
         tenantId,
@@ -176,7 +176,7 @@ export class StatisticsController {
   }
 
   @Get("vendors/performance")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE)
   @ApiOperation({ 
     summary: "Get Vendor performance statistics",
     description: "Comprehensive vendor performance analytics including ratings, delivery metrics, and top performers"
@@ -217,7 +217,7 @@ export class StatisticsController {
   }
 
   @Get("dashboard")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.BUYER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.BUYER)
   @ApiOperation({ 
     summary: "Get dashboard summary statistics",
     description: "Executive dashboard summary with key metrics across all transaction types and recent activity"
@@ -281,7 +281,7 @@ export class StatisticsController {
   }
 
   @Get("summary")
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE, UserRole.BUYER)
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.BUYER)
   @ApiOperation({ 
     summary: "Get comprehensive statistics summary",
     description: "All statistics combined in a single response for comprehensive analytics"
@@ -314,18 +314,18 @@ export class StatisticsController {
       ] = await Promise.all([
         this.statisticsService.getPurchaseOrderStatistics({
           ...baseFilters,
-          ...(userRole !== UserRole.ADMIN && { createdById: userId }),
+          ...(userRole !== UserRoleEnum.ADMIN && { createdById: userId }),
         }),
         this.statisticsService.getPurchaseRequisitionStatistics({
           ...baseFilters,
-          ...(userRole !== UserRole.ADMIN && { requesterId: userId }),
+          ...(userRole !== UserRoleEnum.ADMIN && { requesterId: userId }),
         }),
         this.statisticsService.getTenderStatistics({
           ...baseFilters,
-          ...(userRole !== UserRole.ADMIN && { creatorId: userId }),
+          ...(userRole !== UserRoleEnum.ADMIN && { creatorId: userId }),
         }),
         // Only admins and managers can see vendor statistics
-        [UserRole.ADMIN, UserRole.MANAGER, UserRole.FINANCE].includes(userRole as any)
+        [UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE].includes(userRole as any)
           ? this.statisticsService.getVendorPerformanceStatistics(baseFilters)
           : Promise.resolve(null),
         this.statisticsService.getDashboardSummary(tenantId, baseFilters),
