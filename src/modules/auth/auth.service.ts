@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
