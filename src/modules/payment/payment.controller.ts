@@ -10,11 +10,10 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { UserRoleEnum } from "@prisma/client";
+import { UserRoleEnum, PaymentStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole, PaymentStatus } from '@prisma/client';
 import {
   PaymentService,
   CreatePaymentDto,

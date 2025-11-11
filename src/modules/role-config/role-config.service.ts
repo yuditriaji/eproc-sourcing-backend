@@ -12,7 +12,7 @@ export class RoleConfigService {
 
   async create(tenantId: string, dto: CreateRoleConfigDto) {
     // Check if role already exists
-    const existing = await this.prisma.roleConfig.findUnique({
+    const existing = await this.prisma.rbacConfig.findUnique({
       where: {
         tenantId_roleName: {
           tenantId,
@@ -27,7 +27,7 @@ export class RoleConfigService {
       );
     }
 
-    return this.prisma.roleConfig.create({
+    return this.prisma.rbacConfig.create({
       data: {
         tenantId,
         roleName: dto.roleName,
@@ -39,7 +39,7 @@ export class RoleConfigService {
   }
 
   async findAll(tenantId: string, isActive?: boolean) {
-    return this.prisma.roleConfig.findMany({
+    return this.prisma.rbacConfig.findMany({
       where: {
         tenantId,
         ...(isActive !== undefined && { isActive }),
@@ -51,7 +51,7 @@ export class RoleConfigService {
   }
 
   async findOne(tenantId: string, roleId: string) {
-    const role = await this.prisma.roleConfig.findFirst({
+    const role = await this.prisma.rbacConfig.findFirst({
       where: {
         id: roleId,
         tenantId,
@@ -81,7 +81,7 @@ export class RoleConfigService {
   }
 
   async update(tenantId: string, roleId: string, dto: UpdateRoleConfigDto) {
-    const role = await this.prisma.roleConfig.findFirst({
+    const role = await this.prisma.rbacConfig.findFirst({
       where: {
         id: roleId,
         tenantId,
@@ -92,7 +92,7 @@ export class RoleConfigService {
       throw new NotFoundException("Role not found");
     }
 
-    return this.prisma.roleConfig.update({
+    return this.prisma.rbacConfig.update({
       where: { id: roleId },
       data: {
         permissions: dto.permissions,
@@ -103,7 +103,7 @@ export class RoleConfigService {
   }
 
   async delete(tenantId: string, roleId: string) {
-    const role = await this.prisma.roleConfig.findFirst({
+    const role = await this.prisma.rbacConfig.findFirst({
       where: {
         id: roleId,
         tenantId,
@@ -115,9 +115,9 @@ export class RoleConfigService {
     }
 
     // Check if role is assigned to users
-    const assignedCount = await this.prisma.userRole.count({
+    const assignedCount = await this.prisma.userRbacRole.count({
       where: {
-        roleId,
+        rbacRoleId: roleId,
         tenantId,
       },
     });
@@ -128,7 +128,7 @@ export class RoleConfigService {
       );
     }
 
-    return this.prisma.roleConfig.delete({
+    return this.prisma.rbacConfig.delete({
       where: { id: roleId },
     });
   }

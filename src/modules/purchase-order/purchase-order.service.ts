@@ -6,7 +6,6 @@ import {
   Inject,
   forwardRef,
 } from "@nestjs/common";
-import { UserRoleEnum } from "@prisma/client";
 import { PrismaService } from "../../database/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { EventService } from "../events/event.service";
@@ -15,7 +14,7 @@ import {
   POStatus,
   Prisma,
   PurchaseOrder,
-  UserRole,
+  UserRoleEnum,
   PRStatus,
 } from "@prisma/client";
 

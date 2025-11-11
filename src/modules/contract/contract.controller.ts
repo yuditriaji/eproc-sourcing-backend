@@ -13,11 +13,10 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
 } from "@nestjs/common";
-import { UserRoleEnum } from "@prisma/client";
+import { UserRoleEnum, ContractStatus } from "@prisma/client";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
-import { UserRole, ContractStatus } from "@prisma/client";
 import {
   ContractService,
   CreateContractDto,

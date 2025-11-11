@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { UserRoleEnum } from "@prisma/client";
 import { PrismaService } from "../../database/prisma/prisma.service";
-import { UserRole, POStatus, PRStatus, TenderStatus } from "@prisma/client";
+import { UserRoleEnum, POStatus, PRStatus, TenderStatus } from "@prisma/client";
 
 interface StatisticsFilters {
   period: string;

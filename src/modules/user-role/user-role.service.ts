@@ -26,7 +26,7 @@ export class UserRoleService {
     }
 
     // Verify all roles exist
-    const roles = await this.prisma.roleConfig.findMany({
+    const roles = await this.prisma.rbacConfig.findMany({
       where: {
         id: { in: dto.roleIds },
         tenantId,
@@ -38,29 +38,29 @@ export class UserRoleService {
     }
 
     // Get existing role assignments
-    const existingRoles = await this.prisma.userRole.findMany({
+    const existingRoles = await this.prisma.userRbacRole.findMany({
       where: {
         userId,
         tenantId,
       },
     });
 
-    const existingRoleIds = existingRoles.map((ur) => ur.roleId);
+    const existingRoleIds = existingRoles.map((ur) => ur.rbacRoleId);
     const newRoleIds = dto.roleIds.filter((id) => !existingRoleIds.includes(id));
 
     // Assign new roles
     const assignments = await Promise.all(
       newRoleIds.map((roleId) =>
-        this.prisma.userRole.create({
+        this.prisma.userRbacRole.create({
           data: {
             tenantId,
             userId,
-            roleId,
+            rbacRoleId: roleId,
             assignedBy,
             expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
           },
           include: {
-            roleConfig: true,
+            rbacRole: true,
           },
         }),
       ),
@@ -82,13 +82,13 @@ export class UserRoleService {
       throw new NotFoundException("User not found");
     }
 
-    const userRoles = await this.prisma.userRole.findMany({
+    const userRoles = await this.prisma.userRbacRole.findMany({
       where: {
         userId,
         tenantId,
       },
       include: {
-        roleConfig: {
+        rbacRole: {
           select: {
             id: true,
             roleName: true,
@@ -113,10 +113,10 @@ export class UserRoleService {
   }
 
   async removeRole(tenantId: string, userId: string, roleId: string) {
-    const userRole = await this.prisma.userRole.findFirst({
+    const userRole = await this.prisma.userRbacRole.findFirst({
       where: {
         userId,
-        roleId,
+        rbacRoleId: roleId,
         tenantId,
       },
     });
@@ -125,7 +125,7 @@ export class UserRoleService {
       throw new NotFoundException("Role assignment not found");
     }
 
-    await this.prisma.userRole.delete({
+    await this.prisma.userRbacRole.delete({
       where: { id: userRole.id },
     });
 
@@ -133,14 +133,14 @@ export class UserRoleService {
   }
 
   async getUserPermissions(tenantId: string, userId: string) {
-    const userRoles = await this.prisma.userRole.findMany({
+    const userRoles = await this.prisma.userRbacRole.findMany({
       where: {
         userId,
         tenantId,
         OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
       },
       include: {
-        roleConfig: {
+        rbacRole: {
           select: {
             roleName: true,
             permissions: true,
@@ -154,8 +154,8 @@ export class UserRoleService {
     const mergedPermissions: Record<string, any> = {};
 
     for (const userRole of userRoles) {
-      if (userRole.roleConfig.isActive) {
-        const rolePermissions = userRole.roleConfig.permissions as Record<
+      if (userRole.rbacRole.isActive) {
+        const rolePermissions = userRole.rbacRole.permissions as Record<
           string,
           any
         >;
@@ -178,7 +178,7 @@ export class UserRoleService {
 
     return {
       userId,
-      roles: userRoles.map((ur) => ur.roleConfig.roleName),
+      roles: userRoles.map((ur) => ur.rbacRole.roleName),
       effectivePermissions: mergedPermissions,
     };
   }

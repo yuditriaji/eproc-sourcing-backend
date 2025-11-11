@@ -4,7 +4,6 @@ import {
   BadRequestException,
   ForbiddenException,
 } from "@nestjs/common";
-import { UserRoleEnum } from "@prisma/client";
 import { PrismaService } from "../../database/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { EventService } from "../events/event.service";
@@ -12,7 +11,7 @@ import {
   PRStatus,
   Prisma,
   PurchaseRequisition,
-  UserRole,
+  UserRoleEnum,
 } from "@prisma/client";
 
 export interface CreatePRDto {

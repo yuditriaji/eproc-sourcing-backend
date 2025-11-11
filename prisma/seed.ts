@@ -115,6 +115,129 @@ where: { tenantId_email: { tenantId: tenantA.id, email: 'vendor@eproc.local' } a
     console.log('✅ Created second tenant tenant-b');
   }
 
+  // Create RBAC roles using RbacConfig
+  const adminRole = await prisma.rbacConfig.upsert({
+    where: { 
+      tenantId_roleName: { 
+        tenantId: tenantA.id, 
+        roleName: 'Super Admin'
+      } as any 
+    },
+    update: {},
+    create: {
+      tenantId: tenantA.id,
+      roleName: 'Super Admin',
+      description: 'Full system administrator with all permissions',
+      permissions: {
+        users: ['create', 'read', 'update', 'delete'],
+        roles: ['create', 'read', 'update', 'delete'],
+        tenders: ['create', 'read', 'update', 'delete', 'publish'],
+        bids: ['create', 'read', 'update', 'delete', 'evaluate'],
+        vendors: ['create', 'read', 'update', 'delete', 'approve'],
+        reports: ['read', 'export'],
+        settings: ['read', 'update'],
+      },
+      isActive: true,
+    },
+  });
+
+  const buyerRole = await prisma.rbacConfig.upsert({
+    where: { 
+      tenantId_roleName: { 
+        tenantId: tenantA.id, 
+        roleName: 'Procurement Officer'
+      } as any 
+    },
+    update: {},
+    create: {
+      tenantId: tenantA.id,
+      roleName: 'Procurement Officer',
+      description: 'Can create and manage tenders, evaluate bids',
+      permissions: {
+        tenders: ['create', 'read', 'update', 'publish'],
+        bids: ['read', 'evaluate'],
+        vendors: ['read'],
+        reports: ['read'],
+      },
+      isActive: true,
+    },
+  });
+
+  const vendorRole = await prisma.rbacConfig.upsert({
+    where: { 
+      tenantId_roleName: { 
+        tenantId: tenantA.id, 
+        roleName: 'Vendor'
+      } as any 
+    },
+    update: {},
+    create: {
+      tenantId: tenantA.id,
+      roleName: 'Vendor',
+      description: 'Can view tenders and submit bids',
+      permissions: {
+        tenders: ['read'],
+        bids: ['create', 'read', 'update'],
+      },
+      isActive: true,
+    },
+  });
+
+  // Assign RBAC roles to users
+  await prisma.userRbacRole.upsert({
+    where: {
+      tenantId_userId_rbacRoleId: {
+        tenantId: tenantA.id,
+        userId: admin.id,
+        rbacRoleId: adminRole.id,
+      } as any,
+    },
+    update: {},
+    create: {
+      tenantId: tenantA.id,
+      userId: admin.id,
+      rbacRoleId: adminRole.id,
+      assignedBy: admin.id,
+    },
+  });
+
+  await prisma.userRbacRole.upsert({
+    where: {
+      tenantId_userId_rbacRoleId: {
+        tenantId: tenantA.id,
+        userId: user.id,
+        rbacRoleId: buyerRole.id,
+      } as any,
+    },
+    update: {},
+    create: {
+      tenantId: tenantA.id,
+      userId: user.id,
+      rbacRoleId: buyerRole.id,
+      assignedBy: admin.id,
+    },
+  });
+
+  await prisma.userRbacRole.upsert({
+    where: {
+      tenantId_userId_rbacRoleId: {
+        tenantId: tenantA.id,
+        userId: vendorUser.id,
+        rbacRoleId: vendorRole.id,
+      } as any,
+    },
+    update: {},
+    create: {
+      tenantId: tenantA.id,
+      userId: vendorUser.id,
+      rbacRoleId: vendorRole.id,
+      assignedBy: admin.id,
+    },
+  });
+
+  console.log('🔐 Created RBAC roles:', adminRole.roleName, buyerRole.roleName, vendorRole.roleName);
+  console.log('✅ Assigned RBAC roles to users');
+
   // Create a Vendor entity for seeding bids
   const vendorEntity = await prisma.vendor.create({
     data: {
