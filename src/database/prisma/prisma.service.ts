@@ -41,7 +41,14 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   constructor(private readonly tenantContext: TenantContext) {
-    super();
+    super({
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL,
+        },
+      },
+      log: ['error', 'warn'],
+    });
 
     const maybeUse = (this as any).$use;
     if (typeof maybeUse === "function") {
@@ -119,7 +126,22 @@ export class PrismaService
   }
 
   async onModuleInit() {
-    await this.$connect();
+    let retries = 5;
+    while (retries > 0) {
+      try {
+        await this.$connect();
+        console.log('✓ Database connected successfully');
+        break;
+      } catch (error) {
+        retries--;
+        console.log(`Database connection attempt failed. Retries left: ${retries}`);
+        if (retries === 0) {
+          console.error('Failed to connect to database after multiple attempts');
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
+    }
   }
 
   async onModuleDestroy() {

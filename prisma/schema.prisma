@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
 }
 
 // Multitenancy core
@@ -36,16 +37,15 @@ model Tenant {
   documents            Document[]
   auditLogs            AuditLog[]
   systemConfigs        SystemConfig[]
-  roleConfigs          RoleConfig[]
   refreshTokens        RefreshToken[]
   notifications        Notification[]
   workflowSteps        WorkflowStep[]
-  userRoles            UserRole[]
+  userRbacRoles        UserRbacRole[]
   tenantKeys           TenantKey[]
   outbox               Outbox[]
   // Basis relations
   processConfigs       ProcessConfig[]
-  rbacConfigs          RbacConfig[]
+  rbacRoles            RbacConfig[]
   orgUnits             OrgUnit[]
   // SAP-style enterprise purchasing relations
   companyCodes         CompanyCode[]
@@ -119,7 +119,7 @@ model User {
   purchaseRequisitions PurchaseRequisition[]
   createdTenders       Tender[]              @relation("TenderCreator")
   tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userRoles            UserRole[]            @relation("UserRoles")
+  rbacRoles            UserRbacRole[]        @relation("UserRbacRoles")
 
   @@unique([tenantId, email])
   @@unique([tenantId, username])
@@ -742,16 +742,21 @@ model RbacConfig {
   id              String         @id @default(cuid())
   tenantId        String
   roleName        String
+  description     String?
   orgLevel        Int?
-  permissions     Json
+  permissions     Json           // Flexible permissions structure
   processConfigId String?
+  isActive        Boolean        @default(true)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   processConfig   ProcessConfig? @relation("RbacToProcessConfig", fields: [processConfigId], references: [id])
+  userRoles       UserRbacRole[] @relation("RbacConfigUserRoles")
 
-  @@unique([tenantId, roleName, processConfigId])
+  @@unique([tenantId, roleName])
   @@index([tenantId])
+  @@index([tenantId, isActive])
+  @@index([tenantId, processConfigId])
   @@map("rbac_config")
 }
 
@@ -911,39 +916,22 @@ model PurchasingOrgAssignment {
   @@map("porg_assignments")
 }
 
-model RoleConfig {
-  id          String     @id @default(cuid())
-  tenantId    String
-  roleName    String
-  permissions Json
-  description String?
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userRoles   UserRole[] @relation("RoleConfigUserRoles")
-
-  @@unique([tenantId, roleName])
-  @@index([tenantId])
-  @@map("role_configs")
-}
-
-model UserRole {
+model UserRbacRole {
   id         String     @id @default(cuid())
   tenantId   String
   userId     String
-  roleId     String
+  rbacRoleId String
   assignedAt DateTime   @default(now())
   assignedBy String?
   expiresAt  DateTime?
-  user       User       @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
-  roleConfig RoleConfig @relation("RoleConfigUserRoles", fields: [roleId], references: [id], onDelete: Cascade)
+  user       User       @relation("UserRbacRoles", fields: [userId], references: [id], onDelete: Cascade)
+  rbacRole   RbacConfig @relation("RbacConfigUserRoles", fields: [rbacRoleId], references: [id], onDelete: Cascade)
   tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, userId, roleId])
+  @@unique([tenantId, userId, rbacRoleId])
   @@index([tenantId, userId])
-  @@index([tenantId, roleId])
-  @@map("user_roles")
+  @@index([tenantId, rbacRoleId])
+  @@map("user_rbac_roles")
 }
 
 model RefreshToken {
