@@ -139,10 +139,13 @@ export class AuthService {
     }
 
     // Load RBAC roles and merge permissions
+    console.log('[DEBUG] Loading RBAC roles for user:', user.id, 'tenantId:', tenantId);
     const { rbacRoles, mergedPermissions } = await this.loadUserRbacRoles(
       user.id,
       tenantId,
     );
+    console.log('[DEBUG] RBAC roles loaded:', rbacRoles);
+    console.log('[DEBUG] Merged permissions:', mergedPermissions ? 'YES' : 'NO');
 
     // Generate tokens
     const payload = {
