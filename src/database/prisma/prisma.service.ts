@@ -126,22 +126,7 @@ export class PrismaService
   }
 
   async onModuleInit() {
-    let retries = 5;
-    while (retries > 0) {
-      try {
-        await this.$connect();
-        console.log('✓ Database connected successfully');
-        break;
-      } catch (error) {
-        retries--;
-        console.log(`Database connection attempt failed. Retries left: ${retries}`);
-        if (retries === 0) {
-          console.error('Failed to connect to database after multiple attempts');
-          throw error;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-      }
-    }
+    await this.$connect();
   }
 
   async onModuleDestroy() {
