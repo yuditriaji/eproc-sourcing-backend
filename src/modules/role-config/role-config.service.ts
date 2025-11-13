@@ -44,6 +44,13 @@ export class RoleConfigService {
         tenantId,
         ...(isActive !== undefined && { isActive }),
       },
+      include: {
+        _count: {
+          select: {
+            userRoles: true,
+          },
+        },
+      },
       orderBy: {
         createdAt: "desc",
       },

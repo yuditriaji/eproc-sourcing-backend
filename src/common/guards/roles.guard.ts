@@ -30,11 +30,16 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException("User role not found");
     }
 
-    const hasRole = requiredRoles.includes(user.role);
+    // Check both enum role (user.role) and RBAC roles (user.rbacRoles)
+    const hasEnumRole = requiredRoles.includes(user.role);
+    const hasRbacRole = user.rbacRoles?.some((r: string) =>
+      requiredRoles.includes(r),
+    ) ?? false;
 
-    if (!hasRole) {
+    if (!hasEnumRole && !hasRbacRole) {
+      const userRoles = [user.role, ...(user.rbacRoles || [])].join(", ");
       throw new ForbiddenException(
-        `Access denied. Required roles: ${requiredRoles.join(", ")}. Your role: ${user.role}`,
+        `Access denied. Required roles: ${requiredRoles.join(", ")}. Your roles: ${userRoles}`,
       );
     }
 

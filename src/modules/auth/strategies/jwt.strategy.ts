@@ -8,6 +8,7 @@ export interface JwtPayload {
   sub: string;
   email: string;
   role: string;
+  rbacRoles?: string[]; // RBAC role names
   tenantId?: string;
   abilities?: any[];
   iat?: number;
@@ -63,7 +64,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
-      abilities: user.abilities,
+      rbacRoles: payload.rbacRoles || [], // Include RBAC roles from token
+      abilities: payload.abilities || user.abilities, // Use token abilities (merged) or fallback to user abilities
       tenantId: payload.tenantId,
     };
   }

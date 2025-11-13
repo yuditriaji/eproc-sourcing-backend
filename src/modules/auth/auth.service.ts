@@ -138,12 +138,19 @@ export class AuthService {
       throw new UnauthorizedException("Invalid credentials");
     }
 
+    // Load RBAC roles and merge permissions
+    const { rbacRoles, mergedPermissions } = await this.loadUserRbacRoles(
+      user.id,
+      tenantId,
+    );
+
     // Generate tokens
     const payload = {
       sub: user.id,
       email: user.email,
       role: user.role,
-      abilities: user.abilities,
+      rbacRoles, // Add RBAC role names
+      abilities: mergedPermissions || user.abilities, // Use merged permissions or fallback to user abilities
       tenantId,
     };
 
@@ -451,12 +458,19 @@ export class AuthService {
         throw new UnauthorizedException("User account is inactive");
       }
 
+      // Load RBAC roles and merge permissions for refresh
+      const { rbacRoles, mergedPermissions } = await this.loadUserRbacRoles(
+        user.id,
+        (payload as any).tenantId,
+      );
+
       // Generate new access token
       const newPayload = {
         sub: user.id,
         email: user.email,
         role: user.role,
-        abilities: user.abilities,
+        rbacRoles,
+        abilities: mergedPermissions || user.abilities,
         tenantId: (payload as any).tenantId,
       };
 
@@ -551,16 +565,97 @@ export class AuthService {
     };
   }
 
+  /**
+   * Load user's RBAC roles and merge their permissions
+   */
+  private async loadUserRbacRoles(
+    userId: string,
+    tenantId: string,
+  ): Promise<{ rbacRoles: string[]; mergedPermissions: any }> {
+    try {
+      // Fetch active, non-expired RBAC roles for user
+      const userRoles = await this.prismaService.userRbacRole.findMany({
+        where: {
+          userId,
+          tenantId,
+          OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
+        },
+        include: {
+          rbacRole: {
+            select: {
+              roleName: true,
+              permissions: true,
+              isActive: true,
+            },
+          },
+        },
+      });
+
+      // Extract role names
+      const rbacRoles = userRoles
+        .filter((ur) => ur.rbacRole.isActive)
+        .map((ur) => ur.rbacRole.roleName);
+
+      // Merge permissions from all active roles
+      const mergedPermissions: Record<string, any> = {};
+
+      for (const userRole of userRoles) {
+        if (userRole.rbacRole.isActive) {
+          const rolePermissions = userRole.rbacRole.permissions as Record<
+            string,
+            any
+          >;
+
+          if (rolePermissions && typeof rolePermissions === "object") {
+            for (const [key, value] of Object.entries(rolePermissions)) {
+              if (!mergedPermissions[key]) {
+                mergedPermissions[key] = [];
+              }
+
+              if (Array.isArray(value)) {
+                // Merge arrays and remove duplicates
+                mergedPermissions[key] = [
+                  ...new Set([...mergedPermissions[key], ...value]),
+                ];
+              } else {
+                // For non-array values, last one wins
+                mergedPermissions[key] = value;
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        rbacRoles,
+        mergedPermissions:
+          Object.keys(mergedPermissions).length > 0
+            ? mergedPermissions
+            : null,
+      };
+    } catch (error) {
+      console.error("Error loading RBAC roles:", error);
+      return { rbacRoles: [], mergedPermissions: null };
+    }
+  }
+
   private async generateTokensForUser(
     user: any,
     ipAddress: string,
     userAgent: string,
   ): Promise<AuthResult> {
+    // Load RBAC roles and merge permissions
+    const { rbacRoles, mergedPermissions } = await this.loadUserRbacRoles(
+      user.id,
+      user.tenantId,
+    );
+
     const payload = {
       sub: user.id,
       email: user.email,
       role: user.role,
-      abilities: user.abilities,
+      rbacRoles,
+      abilities: mergedPermissions || user.abilities,
       tenantId: user.tenantId,
     };
 
