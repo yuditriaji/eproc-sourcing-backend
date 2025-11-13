@@ -21,6 +21,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "ts-node prisma/seed.ts",
+    "seed:rbac-roles": "ts-node scripts/seed-default-rbac-roles.ts",
     "start:dev:local": "ts-node src/main.local.ts",
     "setup:local": "npm run prisma:generate && npm run prisma:push && npm run prisma:seed",
     "dev:local": "npm run setup:local && npm run start:dev:local",
