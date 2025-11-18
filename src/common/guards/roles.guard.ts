@@ -31,9 +31,11 @@ export class RolesGuard implements CanActivate {
     }
 
     // Check both enum role (user.role) and RBAC roles (user.rbacRoles)
-    const hasEnumRole = requiredRoles.includes(user.role);
+    // Case-insensitive comparison to handle both "ADMIN" (enum) and "Admin" (RBAC)
+    const requiredRolesLower = requiredRoles.map((r) => r.toLowerCase());
+    const hasEnumRole = requiredRolesLower.includes(user.role.toLowerCase());
     const hasRbacRole = user.rbacRoles?.some((r: string) =>
-      requiredRoles.includes(r),
+      requiredRolesLower.includes(r.toLowerCase()),
     ) ?? false;
 
     if (!hasEnumRole && !hasRbacRole) {
