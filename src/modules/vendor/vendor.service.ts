@@ -481,8 +481,8 @@ export class VendorService {
         tenantId,
         userId: adminUserId,
         action: 'CREATE' as any,
-        entity: 'User',
-        entityId: user.id,
+        targetType: 'User',
+        targetId: user.id,
         newValues: {
           email: user.email,
           username: user.username,
