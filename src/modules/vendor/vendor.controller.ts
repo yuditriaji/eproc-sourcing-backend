@@ -173,6 +173,23 @@ class UpdateRatingDto {
   onTimeDelivery?: number;
 }
 
+class CreateVendorUserDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @IsOptional()
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+}
+
 @ApiTags("Vendors")
 @Controller(":tenant/vendors")
 @UseGuards(AuthGuard("jwt"))
@@ -274,5 +291,41 @@ export class VendorController {
   @ApiResponse({ status: 404, description: 'Vendor not found' })
   async delete(@Param('id') id: string) {
     return this.vendorService.deleteVendor(id);
+  }
+
+  @Post(':id/user')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Create user account for vendor (Admin only)',
+    description: 'Creates a login account for vendor with auto-generated password. Vendor must change password on first login.',
+  })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Vendor user created successfully',
+    schema: {
+      example: {
+        user: {
+          id: 'user_123',
+          email: 'vendor@example.com',
+          username: 'vendor_user',
+          role: 'VENDOR',
+          isVerified: true,
+        },
+        temporaryPassword: 'TempPass123!',
+        message: 'User created successfully. Send these credentials to the vendor.',
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Vendor not found' })
+  @ApiResponse({ status: 409, description: 'User with email already exists' })
+  async createVendorUser(
+    @Param('id') vendorId: string,
+    @Body() dto: CreateVendorUserDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    return this.vendorService.createVendorUser(vendorId, dto, tenantId, req.user.id);
   }
 }

@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException, ConflictException } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma/prisma.service";
 import { TenantContext } from "../../common/tenant/tenant-context";
+import * as bcrypt from "bcrypt";
+import * as crypto from "crypto";
 
 export interface CreateVendorDto {
   name: string;
@@ -343,5 +345,119 @@ export class VendorService {
         rating: true,
       },
     });
+  }
+
+  /**
+   * Generate a secure random password
+   * Format: [Uppercase][Lowercase][Numbers][Special]...
+   * Example: Td8#kL2@pR9!
+   */
+  private generateSecurePassword(length: number = 12): string {
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const special = '!@#$%^&*';
+    const allChars = uppercase + lowercase + numbers + special;
+    
+    let password = '';
+    
+    // Ensure at least one of each type
+    password += uppercase[Math.floor(Math.random() * uppercase.length)];
+    password += lowercase[Math.floor(Math.random() * lowercase.length)];
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += special[Math.floor(Math.random() * special.length)];
+    
+    // Fill the rest randomly
+    for (let i = password.length; i < length; i++) {
+      password += allChars[Math.floor(Math.random() * allChars.length)];
+    }
+    
+    // Shuffle the password
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  }
+
+  /**
+   * Create user account for vendor with auto-generated password
+   */
+  async createVendorUser(
+    vendorId: string,
+    dto: { email: string; username?: string; firstName?: string; lastName?: string },
+    tenantId: string,
+    adminUserId: string,
+  ) {
+    // Verify vendor exists
+    const vendor = await this.prisma.vendor.findFirst({
+      where: { id: vendorId, tenantId, deletedAt: null },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor not found');
+    }
+
+    // Check if user with email already exists
+    const existingUser = await this.prisma.user.findFirst({
+      where: { tenantId, email: dto.email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    // Generate secure temporary password
+    const temporaryPassword = this.generateSecurePassword(12);
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+    // Generate username if not provided
+    const username = dto.username || dto.email.split('@')[0];
+
+    // Create user with VENDOR role
+    const user = await this.prisma.user.create({
+      data: {
+        tenantId,
+        email: dto.email,
+        username,
+        password: hashedPassword,
+        firstName: dto.firstName || vendor.name,
+        lastName: dto.lastName || '',
+        role: 'VENDOR' as any,
+        isVerified: true,  // Auto-verified since created by admin
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isVerified: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    // Log audit trail
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId,
+        userId: adminUserId,
+        action: 'CREATE' as any,
+        entity: 'User',
+        entityId: user.id,
+        newValues: {
+          email: user.email,
+          username: user.username,
+          role: user.role,
+          vendorId: vendorId,
+          vendorName: vendor.name,
+        },
+      },
+    });
+
+    return {
+      user,
+      temporaryPassword,
+      message: 'User created successfully. Send these credentials to the vendor. They must change the password on first login.',
+    };
   }
 }
