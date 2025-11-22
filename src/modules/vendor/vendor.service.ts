@@ -25,6 +25,12 @@ export interface CreateVendorDto {
   annualRevenue?: number;
   certifications?: any;
   insuranceInfo?: any;
+  // User account creation (optional)
+  userEmail?: string;
+  userUsername?: string;
+  userFirstName?: string;
+  userLastName?: string;
+  createUserAccount?: boolean;
 }
 
 export interface UpdateVendorDto {
@@ -56,7 +62,7 @@ export class VendorService {
     private readonly tenantContext: TenantContext,
   ) {}
 
-  async createVendor(dto: CreateVendorDto, tenantId?: string) {
+  async createVendor(dto: CreateVendorDto, tenantId?: string, adminUserId?: string) {
     // Enforce uniqueness by name+contactEmail within tenant via schema constraints where possible
     try {
       const resolvedTenantId = tenantId || this.tenantContext.getTenantId();
@@ -123,7 +129,40 @@ export class VendorService {
           createdAt: true,
         },
       });
-      return vendor;
+
+      // Optionally create user account if requested
+      if (dto.createUserAccount && dto.userEmail) {
+        try {
+          const userCreationResult = await this.createVendorUser(
+            vendor.id,
+            {
+              email: dto.userEmail,
+              username: dto.userUsername,
+              firstName: dto.userFirstName,
+              lastName: dto.userLastName,
+            },
+            resolvedTenantId,
+            adminUserId || 'system',
+          );
+
+          return {
+            vendor,
+            user: userCreationResult.user,
+            temporaryPassword: userCreationResult.temporaryPassword,
+            message: 'Vendor and user account created successfully. Send these credentials to the vendor.',
+          };
+        } catch (userError: any) {
+          // Vendor created but user creation failed
+          // Return vendor with error message
+          return {
+            vendor,
+            error: `Vendor created successfully, but user creation failed: ${userError.message}`,
+            message: 'Vendor created. You can create user account separately.',
+          };
+        }
+      }
+
+      return { vendor };
     } catch (e: any) {
       // Prisma unique constraint or other errors
       throw new BadRequestException(e.message || "Failed to create vendor");

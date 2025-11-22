@@ -92,6 +92,26 @@ class CreateVendorDto implements ICreateVendorDto {
 
   @IsOptional()
   insuranceInfo?: any;
+
+  // User account creation (optional)
+  @IsOptional()
+  @IsEmail()
+  userEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  userUsername?: string;
+
+  @IsOptional()
+  @IsString()
+  userFirstName?: string;
+
+  @IsOptional()
+  @IsString()
+  userLastName?: string;
+
+  @IsOptional()
+  createUserAccount?: boolean;
 }
 
 class UpdateVendorDto implements IUpdateVendorDto {
@@ -199,19 +219,38 @@ export class VendorController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles("USER")
+  @Roles("ADMIN", "USER")
   @ApiBearerAuth()
   @ApiOperation({
-    summary: "Create supplier (vendor) - only USER role within tenant",
+    summary: "Create supplier (vendor) with optional user account",
+    description: "Creates vendor company. If createUserAccount=true, also creates login credentials with auto-generated password.",
   })
-  @ApiResponse({ status: 201, description: "Vendor created" })
+  @ApiResponse({ 
+    status: 201, 
+    description: "Vendor created successfully",
+    schema: {
+      example: {
+        vendor: {
+          id: "vendor_123",
+          name: "ABC Supply Co.",
+          contactEmail: "contact@abc.com",
+          status: "ACTIVE",
+        },
+        user: {
+          id: "user_456",
+          email: "john@abc.com",
+          username: "john_abc",
+          role: "VENDOR",
+        },
+        temporaryPassword: "Td8#kL2@pR9!",
+        message: "Vendor and user created successfully. Send credentials to the vendor.",
+      },
+    },
+  })
   async create(@Body() dto: CreateVendorDto, @Req() req: any) {
-    // Double-check role at runtime for safety
-    if (req.user?.role !== "USER") {
-      throw new ForbiddenException("Only USER role can create vendor");
-    }
     const tenantId = req.user?.tenantId;
-    return this.vendorService.createVendor(dto, tenantId);
+    const adminUserId = req.user?.id;
+    return this.vendorService.createVendor(dto, tenantId, adminUserId);
   }
 
   @Get()
