@@ -28,7 +28,93 @@ All transaction endpoints require JWT authentication with appropriate role permi
 ## 1. Procurement Workflow
 
 The procurement workflow follows this sequence:  
-**Contract → Purchase Requisition (PR) → Purchase Order (PO) → Goods Receipt → Invoice → Payment**
+**Contract (DRAFT) → Contract Approval → Contract (IN_PROGRESS) → Purchase Requisition (PR) → Purchase Order (PO) → Goods Receipt → Invoice → Payment**
+
+### 1.0 Contract Approval (NEW)
+**Endpoint:** `POST /{tenant}/contracts/{contractId}/approve`  
+**Auth:** Bearer (ADMIN, MANAGER, APPROVER)  
+**Description:** Approve or reject a draft contract. Upon approval, contract status automatically transitions to IN_PROGRESS, enabling PR creation.
+
+#### Request Body (Approval)
+```json
+{
+  "approved": true,
+  "comments": "Contract terms reviewed and approved. Budget verified with finance team."
+}
+```
+
+#### Response (200 OK)
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Contract approved successfully and activated",
+  "data": {
+    "id": "con_tech001",
+    "contractNumber": "CON-202501-0001",
+    "title": "IT Infrastructure Services Contract",
+    "status": "IN_PROGRESS",
+    "totalAmount": 500000.00,
+    "approvedAt": "2025-01-20T10:00:00.000Z",
+    "approvedById": "usr_manager001",
+    "approver": {
+      "id": "usr_manager001",
+      "name": "Sarah Johnson",
+      "role": "MANAGER"
+    },
+    "createdAt": "2025-01-19T14:30:00.000Z",
+    "updatedAt": "2025-01-20T10:00:00.000Z"
+  },
+  "meta": {
+    "nextSteps": [
+      "Contract is now IN_PROGRESS",
+      "You can now create Purchase Requisitions",
+      "Initiate procurement workflows"
+    ]
+  }
+}
+```
+
+#### Request Body (Rejection)
+```json
+{
+  "approved": false,
+  "comments": "Please revise payment terms in section 3.2. Total amount exceeds approved budget."
+}
+```
+
+#### Response (200 OK - Rejection)
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Contract rejected",
+  "data": {
+    "id": "con_tech001",
+    "contractNumber": "CON-202501-0001",
+    "status": "DRAFT",
+    "approvedAt": "2025-01-20T10:00:00.000Z",
+    "approvedById": "usr_manager001",
+    "rejectionReason": "Please revise payment terms in section 3.2. Total amount exceeds approved budget."
+  },
+  "meta": {
+    "nextSteps": [
+      "Contract remains in DRAFT status",
+      "Requester can revise and resubmit",
+      "Address rejection comments"
+    ]
+  }
+}
+```
+
+**Important Notes:**
+- Only contracts in DRAFT status can be approved/rejected
+- Once approved, contract cannot be approved again (idempotent)
+- Approval automatically transitions status from DRAFT to IN_PROGRESS
+- IN_PROGRESS contracts are required for creating Purchase Requisitions
+- Rejection keeps contract in DRAFT with rejection reason stored
+
+---
 
 ### 1.1 Initiate Procurement from Contract
 **Endpoint:** `POST /{tenant}/workflows/procurement/initiate/{contractId}`  

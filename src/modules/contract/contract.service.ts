@@ -440,6 +440,74 @@ export class ContractService {
     return validTransitions[currentStatus].includes(newStatus);
   }
 
+  async approveContract(
+    contractId: string,
+    approverId: string,
+    approved: boolean,
+    comments?: string,
+  ): Promise<Contract> {
+    const contract = await this.findOne(contractId);
+
+    // Check if contract can be approved
+    if (contract.status !== ContractStatus.DRAFT) {
+      throw new BadRequestException(
+        "Only draft contracts can be approved or rejected",
+      );
+    }
+
+    // Check if already approved or rejected
+    if (contract.approvedAt) {
+      throw new BadRequestException(
+        "Contract has already been approved or rejected",
+      );
+    }
+
+    // Update contract with approval/rejection
+    const updatedContract = await this.prisma.contract.update({
+      where: { id: contractId },
+      data: {
+        approvedAt: new Date(),
+        approvedById: approverId,
+        status: approved ? ContractStatus.IN_PROGRESS : ContractStatus.DRAFT,
+        rejectionReason: !approved ? comments : null,
+        updatedAt: new Date(),
+      },
+      include: {
+        owner: true,
+        currency: true,
+        approver: true,
+        vendors: {
+          include: {
+            vendor: true,
+          },
+        },
+      },
+    });
+
+    // Audit log
+    await this.audit.log({
+      action: approved ? "APPROVE" : "REJECT",
+      targetType: "Contract",
+      targetId: contractId,
+      userId: approverId,
+      oldValues: contract,
+      newValues: updatedContract,
+    });
+
+    // Emit event
+    await this.events.emit(
+      approved ? "contract.approved" : "contract.rejected",
+      {
+        contractId,
+        approverId,
+        contract: updatedContract,
+        comments,
+      },
+    );
+
+    return updatedContract;
+  }
+
   async generateContractNumber(): Promise<string> {
     const year = new Date().getFullYear();
     const month = String(new Date().getMonth() + 1).padStart(2, "0");

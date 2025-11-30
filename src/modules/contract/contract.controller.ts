@@ -334,6 +334,60 @@ export class ContractController {
     }
   }
 
+  @Post(":id/approve")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER)
+  @ApiOperation({ summary: "Approve or reject a contract" })
+  @ApiResponseDoc({ status: 200, description: "Contract approved/rejected successfully" })
+  @ApiResponseDoc({ status: 400, description: "Failed to approve/reject contract" })
+  @ApiResponseDoc({ status: 401, description: "Unauthorized" })
+  @ApiResponseDoc({ status: 403, description: "Forbidden" })
+  @ApiResponseDoc({ status: 404, description: "Contract not found" })
+  async approveContract(
+    @Param("id") id: string,
+    @Body() approvalDto: { approved: boolean; comments?: string },
+    @Request() req: any,
+  ): Promise<ApiResponse> {
+    try {
+      const contract = await this.contractService.approveContract(
+        id,
+        req.user.id,
+        approvalDto.approved,
+        approvalDto.comments,
+      );
+
+      return {
+        success: true,
+        statusCode: HttpStatus.OK,
+        message: approvalDto.approved
+          ? "Contract approved successfully and activated"
+          : "Contract rejected",
+        data: contract,
+        meta: approvalDto.approved
+          ? {
+              nextSteps: [
+                "Contract is now IN_PROGRESS",
+                "You can now create Purchase Requisitions",
+                "Initiate procurement workflows",
+              ],
+            }
+          : {
+              nextSteps: [
+                "Contract remains in DRAFT status",
+                "Requester can revise and resubmit",
+                "Address rejection comments",
+              ],
+            },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: error.status || HttpStatus.BAD_REQUEST,
+        message: error.message,
+        errors: [error.message],
+      };
+    }
+  }
+
   @Delete(":id")
   @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Delete a contract" })

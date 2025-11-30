@@ -112,6 +112,7 @@ model User {
   deletedAt            DateTime?
   auditLogs            AuditLog[]            @relation("AuditUser")
   contracts            Contract[]            @relation("ContractOwner")
+  approvedContracts    Contract[]            @relation("ContractApprover")
   receivedPayments     Payment[]             @relation("PaymentReceiver")
   approvedPOs          PurchaseOrder[]       @relation("POApprover")
   createdPOs           PurchaseOrder[]       @relation("POCreator")
@@ -217,6 +218,9 @@ model Contract {
   endDate              DateTime?
   status               ContractStatus        @default(DRAFT)
   ownerId              String
+  approvedAt           DateTime?
+  approvedById         String?
+  rejectionReason      String?
   terms                Json?
   deliverables         Json?
   createdAt            DateTime              @default(now())
@@ -225,6 +229,7 @@ model Contract {
   vendors              ContractVendor[]
   currency             Currency?             @relation(fields: [currencyId], references: [id])
   owner                User                  @relation("ContractOwner", fields: [ownerId], references: [id])
+  approver             User?                 @relation("ContractApprover", fields: [approvedById], references: [id])
   documents            Document[]
   purchaseOrders       PurchaseOrder[]
   purchaseRequisitions PurchaseRequisition[]
