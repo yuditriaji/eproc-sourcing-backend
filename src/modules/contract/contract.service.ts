@@ -298,6 +298,7 @@ export class ContractService {
 
     // Add vendors
     const contractVendors = vendorIds.map((vendorId, index) => ({
+      tenantId: contract.tenantId,
       contractId,
       vendorId,
       role: index === 0 ? ("PRIMARY" as const) : ("SECONDARY" as const), // First vendor is primary
