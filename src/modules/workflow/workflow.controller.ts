@@ -296,6 +296,75 @@ export class WorkflowController {
   }
 
   // ============================================================================
+  // QUOTATION WORKFLOW: Accept Quotation → Create Contract
+  // ============================================================================
+
+  @Post("quotation/accept/:quotationId")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
+  @ApiOperation({
+    summary: "Accept quotation and create contract",
+    description:
+      "Accepts a quotation and automatically creates a contract in DRAFT status. " +
+      "Other quotations for the same tender (if applicable) will be rejected.",
+  })
+  @ApiResponseDoc({
+    status: 201,
+    description: "Quotation accepted and contract created",
+  })
+  @ApiResponseDoc({ status: 400, description: "Bad request" })
+  @ApiResponseDoc({ status: 401, description: "Unauthorized" })
+  @ApiResponseDoc({ status: 403, description: "Forbidden" })
+  @ApiResponseDoc({ status: 404, description: "Quotation not found" })
+  async acceptQuotation(
+    @Param("quotationId") quotationId: string,
+    @Body()
+    contractDetails?: {
+      title?: string;
+      description?: string;
+      startDate?: string;
+      endDate?: string;
+      terms?: any;
+      deliverables?: any;
+    },
+    @Request() req?: any,
+  ): Promise<ApiResponse> {
+    try {
+      const result = await this.workflowService.acceptQuotation(
+        quotationId,
+        req.user.id,
+        contractDetails
+          ? {
+              ...contractDetails,
+              startDate: contractDetails.startDate
+                ? new Date(contractDetails.startDate)
+                : undefined,
+              endDate: contractDetails.endDate
+                ? new Date(contractDetails.endDate)
+                : undefined,
+            }
+          : undefined,
+      );
+
+      return {
+        success: result.success,
+        statusCode: result.success
+          ? HttpStatus.CREATED
+          : HttpStatus.BAD_REQUEST,
+        message: result.message,
+        data: result.data,
+        meta: result.nextSteps ? { nextSteps: result.nextSteps } : undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: "Failed to accept quotation",
+        errors: [error.message],
+      };
+    }
+  }
+
+  // ============================================================================
   // TENDER WORKFLOW 2: Create Tender → Vendor Submission → Evaluation → Award
   // ============================================================================
 

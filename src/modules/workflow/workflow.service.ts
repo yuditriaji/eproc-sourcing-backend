@@ -785,40 +785,63 @@ export class WorkflowService {
         },
       });
 
-      // Create purchase order from winning bid
-      if (winningBid.tender.contractId) {
-        await this.poService.create(
-          {
-            title: `PO for Tender: ${winningBid.tender.title}`,
-            description: `Purchase Order created from awarded tender ${winningBid.tender.tenderNumber}`,
-            amount: Number(
-              winningBid.bidAmount || winningBid.tender.estimatedValue || 0,
-            ),
-            items: winningBid.technicalProposal || {},
-            contractId: winningBid.tender.contractId,
-            vendorIds: [winningBid.vendorId],
-          },
-          userId,
-        );
-      }
+      // Create contract from winning bid
+      const contractNumber = await this.generateContractNumber();
+      const contract = await this.prisma.contract.create({
+        data: {
+          tenantId: winningBid.tenantId,
+          contractNumber,
+          title: `Contract for Tender: ${winningBid.tender.title}`,
+          description: `Contract created from awarded tender ${winningBid.tender.tenderNumber}`,
+          totalAmount: winningBid.bidAmount || winningBid.tender.estimatedValue,
+          status: ContractStatus.DRAFT,
+          ownerId: userId,
+          terms: winningBid.tender.requirements,
+          deliverables: winningBid.technicalProposal,
+        },
+      });
+
+      // Link vendor to contract
+      await this.prisma.contractVendor.create({
+        data: {
+          tenantId: winningBid.tenantId,
+          contractId: contract.id,
+          vendorId: winningBid.vendorId,
+          role: "PRIMARY",
+        },
+      });
+
+      // Link contract back to tender
+      await this.prisma.tender.update({
+        where: { id: tenderId },
+        data: { contractId: contract.id },
+      });
 
       await this.events.emit("workflow.tender_awarded", {
         tenderId,
         winningBidId,
         vendorId: winningBid.vendorId,
+        contractId: contract.id,
         userId,
       });
 
       return {
         success: true,
-        message: "Tender awarded successfully",
+        message: "Tender awarded successfully and contract created",
         nextSteps: [
-          "Purchase Order created automatically",
+          "Contract created in DRAFT status",
+          "Review and approve the contract",
+          "Once approved, create Purchase Requisitions",
           "Notify winning and losing vendors",
-          "Begin contract execution",
-          "Track delivery and performance",
         ],
-        data: winningBid,
+        data: {
+          bid: winningBid,
+          contract: {
+            id: contract.id,
+            contractNumber: contract.contractNumber,
+            status: contract.status,
+          },
+        },
       };
     } catch (error) {
       return {
@@ -828,7 +851,182 @@ export class WorkflowService {
     }
   }
 
+  /**
+   * Quotation Workflow: Accept Quotation → Create Contract
+   */
+
+  async acceptQuotation(
+    quotationId: string,
+    userId: string,
+    contractDetails?: {
+      title?: string;
+      description?: string;
+      startDate?: Date;
+      endDate?: Date;
+      terms?: any;
+      deliverables?: any;
+    },
+  ): Promise<WorkflowTransitionResult> {
+    try {
+      // Get user for tenantId
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          message: "User not found",
+        };
+      }
+
+      // Get quotation with vendor details
+      const quotation = await this.prisma.quotation.findUnique({
+        where: { id: quotationId },
+        include: {
+          vendor: true,
+          currency: true,
+        },
+      });
+
+      if (!quotation) {
+        return {
+          success: false,
+          message: "Quotation not found",
+        };
+      }
+
+      if (quotation.tenantId !== user.tenantId) {
+        return {
+          success: false,
+          message: "Access denied to this quotation",
+        };
+      }
+
+      if (quotation.status === "ACCEPTED") {
+        return {
+          success: false,
+          message: "Quotation has already been accepted",
+        };
+      }
+
+      if (quotation.status === "REJECTED") {
+        return {
+          success: false,
+          message: "Cannot accept a rejected quotation",
+        };
+      }
+
+      // Generate contract number
+      const contractNumber = await this.generateContractNumber();
+
+      // Create contract from quotation
+      const contract = await this.prisma.contract.create({
+        data: {
+          tenantId: user.tenantId,
+          contractNumber,
+          title:
+            contractDetails?.title ||
+            `Contract for ${quotation.quotationNumber}`,
+          description:
+            contractDetails?.description ||
+            `Contract created from quotation ${quotation.quotationNumber}`,
+          totalAmount: quotation.amount,
+          currencyId: quotation.currencyId,
+          startDate: contractDetails?.startDate || new Date(),
+          endDate: contractDetails?.endDate,
+          status: ContractStatus.DRAFT,
+          ownerId: userId,
+          terms: contractDetails?.terms || quotation.terms,
+          deliverables: contractDetails?.deliverables || quotation.items,
+        },
+        include: {
+          currency: true,
+          owner: true,
+        },
+      });
+
+      // Link vendor to contract
+      await this.prisma.contractVendor.create({
+        data: {
+          tenantId: user.tenantId,
+          contractId: contract.id,
+          vendorId: quotation.vendorId,
+          role: "PRIMARY",
+        },
+      });
+
+      // Update quotation status to ACCEPTED
+      await this.prisma.quotation.update({
+        where: { id: quotationId },
+        data: {
+          status: "ACCEPTED",
+        },
+      });
+
+      // Reject other quotations from the same tender (if applicable)
+      if (quotation.tenderId) {
+        await this.prisma.quotation.updateMany({
+          where: {
+            tenderId: quotation.tenderId,
+            id: { not: quotationId },
+            status: "SUBMITTED",
+          },
+          data: {
+            status: "REJECTED",
+          },
+        });
+      }
+
+      // Emit event
+      await this.events.emit("workflow.quotation_accepted", {
+        quotationId,
+        contractId: contract.id,
+        vendorId: quotation.vendorId,
+        userId,
+      });
+
+      return {
+        success: true,
+        message: "Quotation accepted and contract created successfully",
+        nextSteps: [
+          "Contract created in DRAFT status",
+          "Review and approve the contract",
+          "Once approved, you can create Purchase Requisitions",
+          "Vendor will be notified of contract creation",
+        ],
+        data: {
+          quotation: {
+            id: quotation.id,
+            quotationNumber: quotation.quotationNumber,
+            status: "ACCEPTED",
+          },
+          contract: {
+            id: contract.id,
+            contractNumber: contract.contractNumber,
+            status: contract.status,
+            totalAmount: contract.totalAmount,
+            vendor: quotation.vendor,
+          },
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to accept quotation: ${error.message}`,
+      };
+    }
+  }
+
   // Helper methods
+  private async generateContractNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+    const month = String(new Date().getMonth() + 1).padStart(2, "0");
+    const count = (await this.prisma.contract.count()) + 1;
+    const sequence = String(count).padStart(4, "0");
+    return `CON-${year}${month}-${sequence}`;
+  }
+
   private async generateReceiptNumber(): Promise<string> {
     const year = new Date().getFullYear();
     const month = String(new Date().getMonth() + 1).padStart(2, "0");
