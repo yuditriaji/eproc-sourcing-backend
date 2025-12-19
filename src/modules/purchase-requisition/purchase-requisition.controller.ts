@@ -74,7 +74,7 @@ export class PurchaseRequisitionController {
     // Get tenantId from authenticated user
     const tenantId = req.user.tenantId;
 
-    return this.prService.findAll(
+    const result = await this.prService.findAll(
       pageNum,
       limitNum,
       tenantId,
@@ -82,6 +82,17 @@ export class PurchaseRequisitionController {
       filterRequesterId,
       contractId || undefined
     );
+
+    // Transform to match frontend expected format
+    return {
+      data: result.prs,
+      meta: {
+        total: result.total,
+        totalPages: Math.ceil(result.total / limitNum),
+        page: pageNum,
+        pageSize: limitNum,
+      },
+    };
   }
 
   @Get(":id")
