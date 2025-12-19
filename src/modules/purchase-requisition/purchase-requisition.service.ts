@@ -22,6 +22,9 @@ export interface CreatePRDto {
   estimatedAmount?: number;
   requiredBy?: Date;
   justification?: string;
+  department?: string;
+  priority?: string; // LOW, MEDIUM, HIGH, URGENT
+  notes?: string;
   contractId?: string;
   // SAP org refs (optional)
   companyCodeId?: string;
@@ -53,7 +56,7 @@ export class PurchaseRequisitionService {
     private prisma: PrismaService,
     private audit: AuditService,
     private events: EventService,
-  ) {}
+  ) { }
 
   async create(
     createPRDto: CreatePRDto,
@@ -116,7 +119,7 @@ export class PurchaseRequisitionService {
       const user = await this.prisma.user.findUnique({
         where: { id: requesterId },
       });
-      
+
       if (!user) {
         throw new BadRequestException("User not found");
       }
@@ -131,6 +134,9 @@ export class PurchaseRequisitionService {
           estimatedAmount: createPRDto.estimatedAmount,
           requiredBy: createPRDto.requiredBy,
           justification: createPRDto.justification,
+          department: createPRDto.department,
+          priority: createPRDto.priority || 'MEDIUM',
+          notes: createPRDto.notes,
           contractId: createPRDto.contractId,
           requesterId,
           status: PRStatus.PENDING,
@@ -560,10 +566,10 @@ export class PurchaseRequisitionService {
         deletedAt: null,
         ...(user.role === UserRoleEnum.MANAGER &&
           user.department && {
-            requester: {
-              department: user.department,
-            },
-          }),
+          requester: {
+            department: user.department,
+          },
+        }),
       },
       include: {
         requester: true,

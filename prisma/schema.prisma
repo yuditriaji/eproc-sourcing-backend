@@ -284,6 +284,9 @@ model PurchaseRequisition {
   estimatedAmount   Decimal?         @db.Decimal(15, 2)
   requiredBy        DateTime?
   justification     String?
+  department        String?
+  priority          String?          @default("MEDIUM")
+  notes             String?
   status            PRStatus         @default(PENDING)
   // P2P Workflow - Sourcing tracking
   sourcingType      SourcingType     @default(NONE)
