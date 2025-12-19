@@ -39,7 +39,7 @@ export class ContractService {
     private prisma: PrismaService,
     private audit: AuditService,
     private events: EventService,
-  ) {}
+  ) { }
 
   async create(
     createContractDto: CreateContractDto,
@@ -50,16 +50,16 @@ export class ContractService {
       const owner = await this.prisma.user.findUnique({
         where: { id: ownerId },
       });
-      
+
       if (!owner) {
         throw new BadRequestException("Owner not found");
       }
 
       // Check if contract number is unique within tenant
       const existingContract = await this.prisma.contract.findFirst({
-        where: { 
+        where: {
           tenantId: owner.tenantId,
-          contractNumber: createContractDto.contractNumber 
+          contractNumber: createContractDto.contractNumber
         },
       });
 
@@ -162,7 +162,7 @@ export class ContractService {
             select: {
               purchaseRequisitions: true,
               purchaseOrders: true,
-              tenders: true,
+              sourceTenders: true,
             },
           },
         },
@@ -200,7 +200,7 @@ export class ContractService {
             },
           },
         },
-        tenders: {
+        sourceTenders: {
           include: {
             creator: true,
           },

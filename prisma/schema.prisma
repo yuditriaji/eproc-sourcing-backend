@@ -58,6 +58,8 @@ model Tenant {
   budgets              Budget[]
   budgetAllocations    BudgetAllocation[]
   budgetTransfers      BudgetTransfer[]
+  // P2P workflow - RFQ
+  rfqs                 RFQ[]
 
   @@map("tenants")
 }
@@ -119,6 +121,7 @@ model User {
   approvedPRs          PurchaseRequisition[] @relation("PRApprover")
   purchaseRequisitions PurchaseRequisition[]
   createdTenders       Tender[]              @relation("TenderCreator")
+  createdRFQs          RFQ[]                 @relation("RFQCreator")
   tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   rbacRoles            UserRbacRole[]        @relation("UserRbacRoles")
 
@@ -223,6 +226,10 @@ model Contract {
   rejectionReason      String?
   terms                Json?
   deliverables         Json?
+  // P2P Workflow - Source tracking (where this contract came from)
+  sourceType           ContractSourceType? // MANUAL, TENDER_AWARD, QUOTATION_ACCEPT
+  sourceTenderId       String? // If created from tender award
+  sourceQuotationId    String? // If created from quotation acceptance
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   deletedAt            DateTime?
@@ -233,7 +240,9 @@ model Contract {
   documents            Document[]
   purchaseOrders       PurchaseOrder[]
   purchaseRequisitions PurchaseRequisition[]
-  tenders              Tender[]
+  // P2P Workflow Relations
+  sourceTenders        Tender[]              @relation("TenderSourceContract") // Tenders created FROM this contract (legacy)
+  awardedFromTenders   Tender[]              @relation("TenderAwardedContract") // Tenders that awarded TO this contract (new flow)
   tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, contractNumber])
@@ -276,10 +285,12 @@ model PurchaseRequisition {
   requiredBy        DateTime?
   justification     String?
   status            PRStatus         @default(PENDING)
+  // P2P Workflow - Sourcing tracking
+  sourcingType      SourcingType     @default(NONE)
   approvedAt        DateTime?
   approvedById      String?
   rejectionReason   String?
-  contractId        String?
+  contractId        String? // Optional: link to contract (can be before or after sourcing)
   requesterId       String
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
@@ -298,6 +309,9 @@ model PurchaseRequisition {
   storageLocation   StorageLocation? @relation(fields: [storageLocationId], references: [id])
   purchasingOrg     PurchasingOrg?   @relation(fields: [purchasingOrgId], references: [id])
   purchasingGroup   PurchasingGroup? @relation(fields: [purchasingGroupId], references: [id])
+  // P2P Workflow - Sourcing relations (PR can have RFQs or Tenders)
+  rfqs              RFQ[]
+  tenders           Tender[]         @relation("TenderFromPR")
 
   @@unique([tenantId, prNumber])
   @@index([tenantId])
@@ -402,49 +416,56 @@ model POVendor {
 }
 
 model Tender {
-  id                String           @id @default(cuid())
-  tenantId          String
-  processConfigId   String?
-  orgUnitId         String?
+  id                  String               @id @default(cuid())
+  tenantId            String
+  processConfigId     String?
+  orgUnitId           String?
   // SAP-style org refs (optional initially)
-  companyCodeId     String?
-  plantId           String?
-  storageLocationId String?
-  purchasingOrgId   String?
-  purchasingGroupId String?
-  tenderNumber      String
-  title             String
-  description       String
-  requirements      Json
-  criteria          Json
-  estimatedValue    Decimal?         @db.Decimal(15, 2)
-  publishedAt       DateTime?
-  closingDate       DateTime?
-  evaluationDate    DateTime?
-  awardDate         DateTime?
-  category          String?
-  department        String?
-  status            TenderStatus     @default(DRAFT)
-  contractId        String?
-  creatorId         String
-  evaluationMatrix  Json?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  deletedAt         DateTime?
-  bids              Bid[]
-  documents         Document[]
-  quotations        Quotation[]
-  contract          Contract?        @relation(fields: [contractId], references: [id])
-  creator           User             @relation("TenderCreator", fields: [creatorId], references: [id])
-  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  processConfig     ProcessConfig?   @relation("TenderProcessConfig", fields: [processConfigId], references: [id])
-  orgUnit           OrgUnit?         @relation("TenderOrgUnit", fields: [orgUnitId], references: [id])
+  companyCodeId       String?
+  plantId             String?
+  storageLocationId   String?
+  purchasingOrgId     String?
+  purchasingGroupId   String?
+  tenderNumber        String
+  title               String
+  description         String
+  requirements        Json
+  criteria            Json
+  estimatedValue      Decimal?             @db.Decimal(15, 2)
+  publishedAt         DateTime?
+  closingDate         DateTime?
+  evaluationDate      DateTime?
+  awardDate           DateTime?
+  category            String?
+  department          String?
+  status              TenderStatus         @default(DRAFT)
+  // P2P Workflow - Link to PR (new standard flow) or Contract (legacy flow)
+  prId                String? // New: Link to PR for standard P2P flow
+  contractId          String? // Legacy: Link to source contract (keep for backward compat)
+  awardedBidId        String? // Track winning bid
+  awardedContractId   String? // Link to contract created after award
+  creatorId           String
+  evaluationMatrix    Json?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+  bids                Bid[]
+  documents           Document[]
+  quotations          Quotation[]
+  // P2P Relations
+  purchaseRequisition PurchaseRequisition? @relation("TenderFromPR", fields: [prId], references: [id])
+  contract            Contract?            @relation("TenderSourceContract", fields: [contractId], references: [id])
+  awardedContract     Contract?            @relation("TenderAwardedContract", fields: [awardedContractId], references: [id])
+  creator             User                 @relation("TenderCreator", fields: [creatorId], references: [id])
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  processConfig       ProcessConfig?       @relation("TenderProcessConfig", fields: [processConfigId], references: [id])
+  orgUnit             OrgUnit?             @relation("TenderOrgUnit", fields: [orgUnitId], references: [id])
   // Relations to new masters
-  companyCode       CompanyCode?     @relation(fields: [companyCodeId], references: [id])
-  plant             Plant?           @relation(fields: [plantId], references: [id])
-  storageLocation   StorageLocation? @relation(fields: [storageLocationId], references: [id])
-  purchasingOrg     PurchasingOrg?   @relation(fields: [purchasingOrgId], references: [id])
-  purchasingGroup   PurchasingGroup? @relation(fields: [purchasingGroupId], references: [id])
+  companyCode         CompanyCode?         @relation(fields: [companyCodeId], references: [id])
+  plant               Plant?               @relation(fields: [plantId], references: [id])
+  storageLocation     StorageLocation?     @relation(fields: [storageLocationId], references: [id])
+  purchasingOrg       PurchasingOrg?       @relation(fields: [purchasingOrgId], references: [id])
+  purchasingGroup     PurchasingGroup?     @relation(fields: [purchasingGroupId], references: [id])
 
   @@unique([tenantId, tenderNumber])
   @@index([tenantId])
@@ -455,6 +476,7 @@ model Tender {
   @@index([tenantId, storageLocationId])
   @@index([tenantId, purchasingOrgId])
   @@index([tenantId, purchasingGroupId])
+  @@index([tenantId, prId])
   @@map("tenders")
 }
 
@@ -491,31 +513,72 @@ model Bid {
 }
 
 model Quotation {
-  id              String          @id @default(cuid())
-  tenantId        String
-  quotationNumber String
-  tenderId        String?
-  vendorId        String
-  amount          Decimal         @db.Decimal(15, 2)
-  currencyId      String?
-  validUntil      DateTime?
-  items           Json
-  notes           String?
-  terms           Json?
-  score           Decimal?        @db.Decimal(5, 2)
-  status          QuotationStatus @default(SUBMITTED)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  deletedAt       DateTime?
-  documents       Document[]
-  currency        Currency?       @relation(fields: [currencyId], references: [id])
-  tender          Tender?         @relation(fields: [tenderId], references: [id])
-  vendor          Vendor          @relation(fields: [vendorId], references: [id])
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                String          @id @default(cuid())
+  tenantId          String
+  quotationNumber   String
+  // P2P Workflow - Link to RFQ (new flow) or Tender (legacy)
+  rfqId             String? // New: Link to RFQ for standard P2P flow
+  tenderId          String? // Legacy: Keep for backward compatibility
+  vendorId          String
+  amount            Decimal         @db.Decimal(15, 2)
+  currencyId        String?
+  validUntil        DateTime?
+  items             Json
+  notes             String?
+  terms             Json?
+  score             Decimal?        @db.Decimal(5, 2)
+  status            QuotationStatus @default(SUBMITTED)
+  awardedContractId String? // Contract created from this quotation
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+  documents         Document[]
+  currency          Currency?       @relation(fields: [currencyId], references: [id])
+  rfq               RFQ?            @relation("RFQQuotations", fields: [rfqId], references: [id])
+  tender            Tender?         @relation(fields: [tenderId], references: [id])
+  vendor            Vendor          @relation(fields: [vendorId], references: [id])
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, quotationNumber])
   @@index([tenantId])
+  @@index([tenantId, rfqId])
   @@map("quotations")
+}
+
+// P2P Workflow - Request for Quotation
+model RFQ {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  rfqNumber          String
+  prId               String? // Link to PR (optional for backward compat)
+  title              String
+  description        String?
+  items              Json // Items from PR
+  estimatedAmount    Decimal?  @db.Decimal(15, 2)
+  validUntil         DateTime? // Quotation deadline
+  targetVendorIds    String[] // Optional: specific vendors to invite
+  category           String?
+  department         String?
+  status             RFQStatus @default(DRAFT)
+  publishedAt        DateTime?
+  closedAt           DateTime?
+  awardedQuotationId String? // Track winning quotation
+  awardedContractId  String? // Link to contract created after award
+  createdById        String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  // Relations
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  purchaseRequisition PurchaseRequisition? @relation(fields: [prId], references: [id])
+  creator             User                 @relation("RFQCreator", fields: [createdById], references: [id])
+  quotations          Quotation[]          @relation("RFQQuotations")
+
+  @@unique([tenantId, rfqNumber])
+  @@index([tenantId])
+  @@index([tenantId, prId])
+  @@map("rfqs")
 }
 
 model GoodsReceipt {
@@ -749,7 +812,7 @@ model RbacConfig {
   roleName        String
   description     String?
   orgLevel        Int?
-  permissions     Json           // Flexible permissions structure
+  permissions     Json // Flexible permissions structure
   processConfigId String?
   isActive        Boolean        @default(true)
   createdAt       DateTime       @default(now())
@@ -974,7 +1037,7 @@ model Notification {
 }
 
 model WorkflowStep {
-  id               String    @id @default(cuid())
+  id               String        @id @default(cuid())
   tenantId         String
   workflowType     String
   stepName         String
@@ -982,13 +1045,13 @@ model WorkflowStep {
   conditions       Json?
   assignedRole     UserRoleEnum?
   assignedUserId   String?
-  requiresApproval Boolean   @default(false)
-  approvalCount    Int       @default(1)
+  requiresApproval Boolean       @default(false)
+  approvalCount    Int           @default(1)
   timeoutHours     Int?
-  isActive         Boolean   @default(true)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  isActive         Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, workflowType, stepOrder])
   @@index([tenantId])
@@ -1065,6 +1128,30 @@ enum GoodsReceiptStatus {
   PARTIAL
   COMPLETE
   REJECTED
+}
+
+// P2P Workflow - RFQ Status
+enum RFQStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  AWARDED
+  CANCELLED
+}
+
+// P2P Workflow - Sourcing Type for PR
+enum SourcingType {
+  NONE
+  RFQ
+  TENDER
+  DIRECT
+}
+
+// P2P Workflow - Contract Source Type
+enum ContractSourceType {
+  MANUAL
+  TENDER_AWARD
+  QUOTATION_ACCEPT
 }
 
 enum InvoiceStatus {

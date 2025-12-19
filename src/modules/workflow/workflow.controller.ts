@@ -28,7 +28,7 @@ import {
 @Controller(":tenant/workflows")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class WorkflowController {
-  constructor(private readonly workflowService: WorkflowService) {}
+  constructor(private readonly workflowService: WorkflowService) { }
 
   // ============================================================================
   // PROCUREMENT WORKFLOW 1: Contract → PR → PO → Goods Receipt → Invoice → Payment
@@ -334,14 +334,14 @@ export class WorkflowController {
         req.user.id,
         contractDetails
           ? {
-              ...contractDetails,
-              startDate: contractDetails.startDate
-                ? new Date(contractDetails.startDate)
-                : undefined,
-              endDate: contractDetails.endDate
-                ? new Date(contractDetails.endDate)
-                : undefined,
-            }
+            ...contractDetails,
+            startDate: contractDetails.startDate
+              ? new Date(contractDetails.startDate)
+              : undefined,
+            endDate: contractDetails.endDate
+              ? new Date(contractDetails.endDate)
+              : undefined,
+          }
           : undefined,
       );
 
@@ -359,6 +359,236 @@ export class WorkflowController {
         success: false,
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: "Failed to accept quotation",
+        errors: [error.message],
+      };
+    }
+  }
+
+  // ============================================================================
+  // P2P STANDARD SOURCING WORKFLOW: PR → RFQ/Tender → Quotation/Bid → Contract
+  // ============================================================================
+
+  @Post("sourcing/create-rfq/:prId")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
+  @ApiOperation({
+    summary: "Create RFQ from approved Purchase Requisition (Standard P2P)",
+    description:
+      "Creates a Request for Quotation from an approved PR. " +
+      "This is the standard P2P flow for simple sourcing requirements.",
+  })
+  @ApiResponseDoc({ status: 201, description: "RFQ created successfully" })
+  @ApiResponseDoc({ status: 400, description: "Bad request" })
+  async createRFQFromPR(
+    @Param("prId") prId: string,
+    @Body()
+    rfqData: {
+      title: string;
+      description?: string;
+      validUntil?: string;
+      targetVendorIds?: string[];
+      category?: string;
+      department?: string;
+    },
+    @Request() req: any,
+  ): Promise<ApiResponse> {
+    try {
+      const result = await this.workflowService.createRFQFromPR(
+        prId,
+        {
+          ...rfqData,
+          validUntil: rfqData.validUntil
+            ? new Date(rfqData.validUntil)
+            : undefined,
+        },
+        req.user.id,
+      );
+
+      return {
+        success: result.success,
+        statusCode: result.success
+          ? HttpStatus.CREATED
+          : HttpStatus.BAD_REQUEST,
+        message: result.message,
+        data: result.data,
+        meta: result.nextSteps ? { nextSteps: result.nextSteps } : undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: "Failed to create RFQ from PR",
+        errors: [error.message],
+      };
+    }
+  }
+
+  @Post("sourcing/create-tender/:prId")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
+  @ApiOperation({
+    summary: "Create Tender from approved Purchase Requisition (Standard P2P)",
+    description:
+      "Creates a Tender from an approved PR. " +
+      "This is the standard P2P flow for complex sourcing requirements.",
+  })
+  @ApiResponseDoc({ status: 201, description: "Tender created successfully" })
+  @ApiResponseDoc({ status: 400, description: "Bad request" })
+  async createTenderFromPR(
+    @Param("prId") prId: string,
+    @Body()
+    tenderData: {
+      title: string;
+      description: string;
+      requirements: any;
+      criteria: any;
+      estimatedValue?: number;
+      closingDate: string;
+      category?: string;
+      department?: string;
+    },
+    @Request() req: any,
+  ): Promise<ApiResponse> {
+    try {
+      const result = await this.workflowService.createTenderFromPR(
+        prId,
+        {
+          ...tenderData,
+          closingDate: new Date(tenderData.closingDate),
+        },
+        req.user.id,
+      );
+
+      return {
+        success: result.success,
+        statusCode: result.success
+          ? HttpStatus.CREATED
+          : HttpStatus.BAD_REQUEST,
+        message: result.message,
+        data: result.data,
+        meta: result.nextSteps ? { nextSteps: result.nextSteps } : undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: "Failed to create Tender from PR",
+        errors: [error.message],
+      };
+    }
+  }
+
+  @Post("sourcing/accept-rfq-quotation/:quotationId")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
+  @ApiOperation({
+    summary: "Accept RFQ Quotation and create Contract (Standard P2P)",
+    description:
+      "Accepts a quotation from an RFQ and creates a contract with proper source tracking.",
+  })
+  @ApiResponseDoc({ status: 201, description: "Contract created successfully" })
+  @ApiResponseDoc({ status: 400, description: "Bad request" })
+  async acceptRFQQuotation(
+    @Param("quotationId") quotationId: string,
+    @Body()
+    contractDetails?: {
+      title?: string;
+      description?: string;
+      startDate?: string;
+      endDate?: string;
+      terms?: any;
+      deliverables?: any;
+    },
+    @Request() req?: any,
+  ): Promise<ApiResponse> {
+    try {
+      const result = await this.workflowService.acceptRFQQuotationAndCreateContract(
+        quotationId,
+        req.user.id,
+        contractDetails
+          ? {
+            ...contractDetails,
+            startDate: contractDetails.startDate
+              ? new Date(contractDetails.startDate)
+              : undefined,
+            endDate: contractDetails.endDate
+              ? new Date(contractDetails.endDate)
+              : undefined,
+          }
+          : undefined,
+      );
+
+      return {
+        success: result.success,
+        statusCode: result.success
+          ? HttpStatus.CREATED
+          : HttpStatus.BAD_REQUEST,
+        message: result.message,
+        data: result.data,
+        meta: result.nextSteps ? { nextSteps: result.nextSteps } : undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: "Failed to accept quotation",
+        errors: [error.message],
+      };
+    }
+  }
+
+  @Post("sourcing/award-tender/:tenderId/:bidId")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER)
+  @ApiOperation({
+    summary: "Award Tender and create Contract (Standard P2P)",
+    description:
+      "Awards a tender to a winning bid and creates a contract with proper source tracking.",
+  })
+  @ApiResponseDoc({ status: 201, description: "Contract created successfully" })
+  @ApiResponseDoc({ status: 400, description: "Bad request" })
+  async awardTenderFromPR(
+    @Param("tenderId") tenderId: string,
+    @Param("bidId") bidId: string,
+    @Body()
+    contractDetails?: {
+      title?: string;
+      description?: string;
+      startDate?: string;
+      endDate?: string;
+      terms?: any;
+      deliverables?: any;
+    },
+    @Request() req?: any,
+  ): Promise<ApiResponse> {
+    try {
+      const result = await this.workflowService.awardTenderAndCreateContract(
+        tenderId,
+        bidId,
+        req.user.id,
+        contractDetails
+          ? {
+            ...contractDetails,
+            startDate: contractDetails.startDate
+              ? new Date(contractDetails.startDate)
+              : undefined,
+            endDate: contractDetails.endDate
+              ? new Date(contractDetails.endDate)
+              : undefined,
+          }
+          : undefined,
+      );
+
+      return {
+        success: result.success,
+        statusCode: result.success
+          ? HttpStatus.CREATED
+          : HttpStatus.BAD_REQUEST,
+        message: result.message,
+        data: result.data,
+        meta: result.nextSteps ? { nextSteps: result.nextSteps } : undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: "Failed to award tender",
         errors: [error.message],
       };
     }

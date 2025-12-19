@@ -91,6 +91,10 @@ import { PaymentService } from "./modules/payment/payment.service";
 import { QuotationController } from "./modules/quotation/quotation.controller";
 import { QuotationService } from "./modules/quotation/quotation.service";
 
+// RFQ Module (P2P Workflow)
+import { RFQController } from "./modules/rfq/rfq.controller";
+import { RFQService } from "./modules/rfq/rfq.service";
+
 // Role Config Module
 import { RoleConfigModule } from "./modules/role-config/role-config.module";
 
@@ -117,11 +121,11 @@ import { TenantController as TenantsController } from "./modules/tenant/tenant.c
 // Conditionally include MongoDB modules only when MONGODB_URL is provided
 const mongooseImports = process.env.MONGODB_URL
   ? [
-      MongooseModule.forRoot(process.env.MONGODB_URL),
-      MongooseModule.forFeature([
-        { name: BidDocument.name, schema: BidDocumentSchema },
-      ]),
-    ]
+    MongooseModule.forRoot(process.env.MONGODB_URL),
+    MongooseModule.forFeature([
+      { name: BidDocument.name, schema: BidDocumentSchema },
+    ]),
+  ]
   : [];
 
 @Module({
@@ -196,6 +200,7 @@ const mongooseImports = process.env.MONGODB_URL
     InvoiceController,
     PaymentController,
     QuotationController,
+    RFQController,
   ],
   providers: [
     // Database Services
@@ -226,6 +231,7 @@ const mongooseImports = process.env.MONGODB_URL
     InvoiceService,
     PaymentService,
     QuotationService,
+    RFQService,
 
     // Crypto / KMS
     TenantKmsService,

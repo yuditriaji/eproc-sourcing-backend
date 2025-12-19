@@ -3,6 +3,8 @@
 ## Summary
 
 ✅ **MongoDB BidDocument is CORRECTLY used for Tender/Bid workflow, NOT Quotations**
+✅ **RFQ Entity is NOW IMPLEMENTED with full CRUD and lifecycle support**
+✅ **Standard P2P (Need-First) workflows NOW AVAILABLE alongside legacy Contract-First flows**
 
 ---
 
@@ -90,7 +92,7 @@ WORKFLOW 1: RFQ → QUOTATION → CONTRACT
 ═══════════════════════════════════════════════════════════════
 
    [RFQ]                [Quotation]            [Contract]
-   MISSING              PostgreSQL             PostgreSQL
+   PostgreSQL ✅        PostgreSQL             PostgreSQL
      │                       │                      │
      ├─ rfqNumber            ├─ quotationNumber    ├─ contractNumber
      ├─ items[]             ├─ rfqId (optional)   ├─ totalAmount

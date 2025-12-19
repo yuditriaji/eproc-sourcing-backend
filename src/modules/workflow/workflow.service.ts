@@ -31,7 +31,7 @@ export class WorkflowService {
     private prService: PurchaseRequisitionService,
     private poService: PurchaseOrderService,
     private tenderService: TenderService,
-  ) {}
+  ) { }
 
   /**
    * Procurement Workflow 1: Contract → PR → PO → Goods Receipt → Invoice → Payment
@@ -354,7 +354,7 @@ export class WorkflowService {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
       });
-      
+
       if (!user) {
         return {
           success: false,
@@ -534,7 +534,7 @@ export class WorkflowService {
             vendor: true,
           },
         });
-        
+
         await this.events.emit("workflow.bid_updated", {
           bidId: bid.id,
           tenderId,
@@ -661,7 +661,7 @@ export class WorkflowService {
       const evaluator = await this.prisma.user.findUnique({
         where: { id: evaluatorId },
       });
-      
+
       if (!evaluator) {
         return {
           success: false,
@@ -671,7 +671,7 @@ export class WorkflowService {
 
       // Check if bid exists and belongs to correct tenant
       const existingBid = await this.prisma.bid.findFirst({
-        where: { 
+        where: {
           id: bidId,
           tenantId: evaluator.tenantId,
         },
@@ -1016,6 +1016,532 @@ export class WorkflowService {
         message: `Failed to accept quotation: ${error.message}`,
       };
     }
+  }
+
+  // ==========================================================================
+  // P2P STANDARD WORKFLOW: PR → RFQ/Tender → Quotation/Bid → Contract → PO
+  // ==========================================================================
+
+  /**
+   * Create RFQ from approved Purchase Requisition (Standard P2P Flow)
+   */
+  async createRFQFromPR(
+    prId: string,
+    rfqData: {
+      title: string;
+      description?: string;
+      validUntil?: Date;
+      targetVendorIds?: string[];
+      category?: string;
+      department?: string;
+    },
+    userId: string,
+  ): Promise<WorkflowTransitionResult> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        return { success: false, message: "User not found" };
+      }
+
+      // Get PR and validate it's approved
+      const pr = await this.prisma.purchaseRequisition.findFirst({
+        where: { id: prId, tenantId: user.tenantId, deletedAt: null },
+      });
+
+      if (!pr) {
+        return { success: false, message: "Purchase Requisition not found" };
+      }
+
+      if (pr.status !== PRStatus.APPROVED) {
+        return {
+          success: false,
+          message: "Purchase Requisition must be approved before creating RFQ",
+        };
+      }
+
+      // Generate RFQ number
+      const rfqNumber = await this.generateRFQNumber();
+
+      // Create RFQ linked to PR
+      const rfq = await this.prisma.rFQ.create({
+        data: {
+          tenantId: user.tenantId,
+          rfqNumber,
+          prId,
+          title: rfqData.title || pr.title,
+          description: rfqData.description || pr.description,
+          items: pr.items,
+          estimatedAmount: pr.estimatedAmount,
+          validUntil: rfqData.validUntil,
+          targetVendorIds: rfqData.targetVendorIds || [],
+          category: rfqData.category,
+          department: rfqData.department,
+          status: "DRAFT",
+          createdById: userId,
+        },
+        include: {
+          purchaseRequisition: true,
+          creator: {
+            select: { id: true, username: true, firstName: true, lastName: true },
+          },
+        },
+      });
+
+      // Update PR sourcing type
+      await this.prisma.purchaseRequisition.update({
+        where: { id: prId },
+        data: { sourcingType: "RFQ" },
+      });
+
+      await this.events.emit("workflow.rfq_created_from_pr", {
+        rfqId: rfq.id,
+        prId,
+        userId,
+      });
+
+      return {
+        success: true,
+        message: "RFQ created successfully from Purchase Requisition",
+        nextSteps: [
+          "Review RFQ details",
+          "Publish RFQ to vendors",
+          "Collect vendor quotations",
+          "Select best quotation and create contract",
+        ],
+        data: rfq,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to create RFQ from PR: ${error.message}`,
+      };
+    }
+  }
+
+  /**
+   * Create Tender from approved Purchase Requisition (Standard P2P Flow - Complex)
+   */
+  async createTenderFromPR(
+    prId: string,
+    tenderData: {
+      title: string;
+      description: string;
+      requirements: any;
+      criteria: any;
+      estimatedValue?: number;
+      closingDate: Date;
+      category?: string;
+      department?: string;
+    },
+    userId: string,
+  ): Promise<WorkflowTransitionResult> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        return { success: false, message: "User not found" };
+      }
+
+      // Get PR and validate it's approved
+      const pr = await this.prisma.purchaseRequisition.findFirst({
+        where: { id: prId, tenantId: user.tenantId, deletedAt: null },
+      });
+
+      if (!pr) {
+        return { success: false, message: "Purchase Requisition not found" };
+      }
+
+      if (pr.status !== PRStatus.APPROVED) {
+        return {
+          success: false,
+          message: "Purchase Requisition must be approved before creating Tender",
+        };
+      }
+
+      const tenderNumber = await this.generateTenderNumber();
+
+      // Create Tender linked to PR (standard P2P flow)
+      const tender = await this.prisma.tender.create({
+        data: {
+          tenantId: user.tenantId,
+          tenderNumber,
+          prId, // Link to PR for standard P2P flow
+          title: tenderData.title,
+          description: tenderData.description,
+          requirements: tenderData.requirements,
+          criteria: tenderData.criteria,
+          estimatedValue: tenderData.estimatedValue || pr.estimatedAmount,
+          closingDate: tenderData.closingDate,
+          category: tenderData.category,
+          department: tenderData.department,
+          creatorId: userId,
+          status: TenderStatus.DRAFT,
+        } as any,
+        include: {
+          purchaseRequisition: true,
+          creator: true,
+        },
+      });
+
+      // Update PR sourcing type
+      await this.prisma.purchaseRequisition.update({
+        where: { id: prId },
+        data: { sourcingType: "TENDER" },
+      });
+
+      await this.events.emit("workflow.tender_created_from_pr", {
+        tenderId: tender.id,
+        prId,
+        userId,
+      });
+
+      return {
+        success: true,
+        message: "Tender created successfully from Purchase Requisition",
+        nextSteps: [
+          "Review tender details",
+          "Publish tender to vendors",
+          "Monitor vendor bid submissions",
+          "Evaluate bids after closing date",
+          "Award tender and create contract",
+        ],
+        data: tender,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to create Tender from PR: ${error.message}`,
+      };
+    }
+  }
+
+  /**
+   * Accept Quotation from RFQ and create Contract (Standard P2P Flow)
+   */
+  async acceptRFQQuotationAndCreateContract(
+    quotationId: string,
+    userId: string,
+    contractDetails?: {
+      title?: string;
+      description?: string;
+      startDate?: Date;
+      endDate?: Date;
+      terms?: any;
+      deliverables?: any;
+    },
+  ): Promise<WorkflowTransitionResult> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        return { success: false, message: "User not found" };
+      }
+
+      // Get quotation with RFQ details
+      const quotation = await this.prisma.quotation.findFirst({
+        where: { id: quotationId, tenantId: user.tenantId },
+        include: {
+          vendor: true,
+          currency: true,
+          rfq: {
+            include: {
+              purchaseRequisition: true,
+            },
+          },
+        },
+      });
+
+      if (!quotation) {
+        return { success: false, message: "Quotation not found" };
+      }
+
+      if (!quotation.rfqId) {
+        return {
+          success: false,
+          message: "This quotation is not linked to an RFQ. Use acceptQuotation instead.",
+        };
+      }
+
+      if (quotation.status === "ACCEPTED") {
+        return { success: false, message: "Quotation has already been accepted" };
+      }
+
+      const contractNumber = await this.generateContractNumber();
+
+      // Create contract with source tracking
+      const contract = await this.prisma.contract.create({
+        data: {
+          tenantId: user.tenantId,
+          contractNumber,
+          title: contractDetails?.title || `Contract for ${quotation.quotationNumber}`,
+          description: contractDetails?.description ||
+            `Contract created from RFQ quotation ${quotation.quotationNumber}`,
+          totalAmount: quotation.amount,
+          currencyId: quotation.currencyId,
+          startDate: contractDetails?.startDate || new Date(),
+          endDate: contractDetails?.endDate,
+          status: ContractStatus.DRAFT,
+          ownerId: userId,
+          terms: contractDetails?.terms || quotation.terms,
+          deliverables: contractDetails?.deliverables || quotation.items,
+          // P2P Source tracking
+          sourceType: "QUOTATION_ACCEPT",
+          sourceQuotationId: quotationId,
+        },
+        include: {
+          currency: true,
+          owner: true,
+        },
+      });
+
+      // Link vendor to contract
+      await this.prisma.contractVendor.create({
+        data: {
+          tenantId: user.tenantId,
+          contractId: contract.id,
+          vendorId: quotation.vendorId,
+          role: "PRIMARY",
+        },
+      });
+
+      // Update quotation status
+      await this.prisma.quotation.update({
+        where: { id: quotationId },
+        data: {
+          status: "ACCEPTED",
+          awardedContractId: contract.id,
+        },
+      });
+
+      // Update RFQ status to AWARDED
+      if (quotation.rfqId) {
+        await this.prisma.rFQ.update({
+          where: { id: quotation.rfqId },
+          data: {
+            status: "AWARDED",
+            awardedQuotationId: quotationId,
+            awardedContractId: contract.id,
+          },
+        });
+
+        // Reject other quotations for the same RFQ
+        await this.prisma.quotation.updateMany({
+          where: {
+            rfqId: quotation.rfqId,
+            id: { not: quotationId },
+            status: "SUBMITTED",
+          },
+          data: { status: "REJECTED" },
+        });
+      }
+
+      await this.events.emit("workflow.rfq_quotation_accepted", {
+        quotationId,
+        rfqId: quotation.rfqId,
+        contractId: contract.id,
+        vendorId: quotation.vendorId,
+        userId,
+      });
+
+      return {
+        success: true,
+        message: "Quotation accepted and contract created successfully",
+        nextSteps: [
+          "Contract created in DRAFT status",
+          "Review and approve the contract",
+          "Create Purchase Order from contract",
+          "Vendor will be notified",
+        ],
+        data: {
+          quotation: {
+            id: quotation.id,
+            quotationNumber: quotation.quotationNumber,
+            status: "ACCEPTED",
+          },
+          contract: {
+            id: contract.id,
+            contractNumber: contract.contractNumber,
+            status: contract.status,
+          },
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to accept quotation: ${error.message}`,
+      };
+    }
+  }
+
+  /**
+   * Award Tender and create Contract (Standard P2P Flow with source tracking)
+   */
+  async awardTenderAndCreateContract(
+    tenderId: string,
+    winningBidId: string,
+    userId: string,
+    contractDetails?: {
+      title?: string;
+      description?: string;
+      startDate?: Date;
+      endDate?: Date;
+      terms?: any;
+      deliverables?: any;
+    },
+  ): Promise<WorkflowTransitionResult> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        return { success: false, message: "User not found" };
+      }
+
+      // Get tender
+      const tender = await this.prisma.tender.findFirst({
+        where: { id: tenderId, tenantId: user.tenantId },
+        include: { purchaseRequisition: true },
+      });
+
+      if (!tender) {
+        return { success: false, message: "Tender not found" };
+      }
+
+      if (tender.status !== TenderStatus.CLOSED) {
+        return {
+          success: false,
+          message: "Tender must be closed before awarding",
+        };
+      }
+
+      // Get winning bid
+      const winningBid = await this.prisma.bid.findFirst({
+        where: { id: winningBidId, tenderId, tenantId: user.tenantId },
+        include: { vendor: true },
+      });
+
+      if (!winningBid) {
+        return { success: false, message: "Bid not found" };
+      }
+
+      const contractNumber = await this.generateContractNumber();
+
+      // Create contract with P2P source tracking
+      const contract = await this.prisma.contract.create({
+        data: {
+          tenantId: user.tenantId,
+          contractNumber,
+          title: contractDetails?.title || `Contract for Tender: ${tender.title}`,
+          description: contractDetails?.description ||
+            `Contract created from awarded tender ${tender.tenderNumber}`,
+          totalAmount: winningBid.bidAmount || tender.estimatedValue,
+          startDate: contractDetails?.startDate || new Date(),
+          endDate: contractDetails?.endDate,
+          status: ContractStatus.DRAFT,
+          ownerId: userId,
+          terms: contractDetails?.terms || tender.requirements,
+          deliverables: contractDetails?.deliverables || winningBid.technicalProposal,
+          // P2P Source tracking
+          sourceType: "TENDER_AWARD",
+          sourceTenderId: tenderId,
+        },
+      });
+
+      // Link vendor to contract
+      await this.prisma.contractVendor.create({
+        data: {
+          tenantId: user.tenantId,
+          contractId: contract.id,
+          vendorId: winningBid.vendorId,
+          role: "PRIMARY",
+        },
+      });
+
+      // Update tender status and link to created contract
+      await this.prisma.tender.update({
+        where: { id: tenderId },
+        data: {
+          status: TenderStatus.AWARDED,
+          awardDate: new Date(),
+          awardedBidId: winningBidId,
+          awardedContractId: contract.id,
+        },
+      });
+
+      // Update winning bid
+      await this.prisma.bid.update({
+        where: { id: winningBidId },
+        data: { status: BidStatus.ACCEPTED },
+      });
+
+      // Reject other bids
+      await this.prisma.bid.updateMany({
+        where: {
+          tenderId,
+          id: { not: winningBidId },
+          status: { in: [BidStatus.SUBMITTED, BidStatus.UNDER_REVIEW] },
+        },
+        data: { status: BidStatus.REJECTED },
+      });
+
+      await this.events.emit("workflow.tender_awarded_p2p", {
+        tenderId,
+        winningBidId,
+        contractId: contract.id,
+        vendorId: winningBid.vendorId,
+        prId: tender.prId,
+        userId,
+      });
+
+      return {
+        success: true,
+        message: "Tender awarded and contract created successfully",
+        nextSteps: [
+          "Contract created in DRAFT status",
+          "Review and approve the contract",
+          "Create Purchase Order from contract",
+          "Notify winning and losing vendors",
+        ],
+        data: {
+          tender: {
+            id: tender.id,
+            tenderNumber: tender.tenderNumber,
+            status: "AWARDED",
+          },
+          bid: {
+            id: winningBid.id,
+            vendorName: winningBid.vendor.name,
+            bidAmount: winningBid.bidAmount,
+          },
+          contract: {
+            id: contract.id,
+            contractNumber: contract.contractNumber,
+            status: contract.status,
+          },
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to award tender: ${error.message}`,
+      };
+    }
+  }
+
+  private async generateRFQNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+    const month = String(new Date().getMonth() + 1).padStart(2, "0");
+    const count = (await this.prisma.rFQ.count()) + 1;
+    const sequence = String(count).padStart(4, "0");
+    return `RFQ-${year}${month}-${sequence}`;
   }
 
   // Helper methods
