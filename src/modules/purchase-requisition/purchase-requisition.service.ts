@@ -186,6 +186,7 @@ export class PurchaseRequisitionService {
   async findAll(
     page = 1,
     limit = 10,
+    tenantId?: string,
     status?: PRStatus,
     requesterId?: string,
     contractId?: string,
@@ -193,6 +194,7 @@ export class PurchaseRequisitionService {
     const skip = (page - 1) * limit;
     const where: Prisma.PurchaseRequisitionWhereInput = {
       deletedAt: null,
+      ...(tenantId && { tenantId }),
       ...(status && { status }),
       ...(requesterId && { requesterId }),
       ...(contractId && { contractId }),

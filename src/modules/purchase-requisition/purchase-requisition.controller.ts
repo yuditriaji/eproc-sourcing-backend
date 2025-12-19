@@ -71,9 +71,13 @@ export class PurchaseRequisitionController {
     // For roles that can view all, show all PRs. Otherwise, filter by own PRs only
     const filterRequesterId = canViewAllPRs ? (requesterId || undefined) : req.user.id;
 
+    // Get tenantId from authenticated user
+    const tenantId = req.user.tenantId;
+
     return this.prService.findAll(
       pageNum,
       limitNum,
+      tenantId,
       status ? status as any : undefined,
       filterRequesterId,
       contractId || undefined
