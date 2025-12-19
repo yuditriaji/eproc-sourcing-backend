@@ -28,7 +28,7 @@ import {
 @Controller(":tenant/purchase-requisitions")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class PurchaseRequisitionController {
-  constructor(private readonly prService: PurchaseRequisitionService) {}
+  constructor(private readonly prService: PurchaseRequisitionService) { }
 
   @Post()
   @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
@@ -59,15 +59,23 @@ export class PurchaseRequisitionController {
   ) {
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 10;
-    
-    // For non-admin users, show only their own PRs
-    const filterRequesterId = req.user.role === UserRoleEnum.ADMIN ? (requesterId || undefined) : req.user.id;
-    
+
+    // Roles that can view all PRs (not just their own)
+    const canViewAllPRs = [
+      UserRoleEnum.ADMIN,
+      UserRoleEnum.MANAGER,
+      UserRoleEnum.APPROVER,
+      UserRoleEnum.FINANCE,
+    ].includes(req.user.role);
+
+    // For roles that can view all, show all PRs. Otherwise, filter by own PRs only
+    const filterRequesterId = canViewAllPRs ? (requesterId || undefined) : req.user.id;
+
     return this.prService.findAll(
-      pageNum, 
-      limitNum, 
-      status ? status as any : undefined, 
-      filterRequesterId, 
+      pageNum,
+      limitNum,
+      status ? status as any : undefined,
+      filterRequesterId,
       contractId || undefined
     );
   }
