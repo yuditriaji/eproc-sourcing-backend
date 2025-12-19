@@ -132,7 +132,7 @@ export class PurchaseRequisitionService {
           description: createPRDto.description,
           items: createPRDto.items,
           estimatedAmount: createPRDto.estimatedAmount,
-          requiredBy: createPRDto.requiredBy,
+          requiredBy: createPRDto.requiredBy ? new Date(createPRDto.requiredBy) : undefined,
           justification: createPRDto.justification,
           department: createPRDto.department,
           priority: createPRDto.priority || 'MEDIUM',
