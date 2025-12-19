@@ -172,13 +172,14 @@ export class PurchaseRequisitionService {
 
       return pr;
     } catch (error) {
+      console.error('PR Creation Error:', error);
       if (
         error instanceof BadRequestException ||
         error instanceof NotFoundException
       ) {
         throw error;
       }
-      throw new BadRequestException("Failed to create purchase requisition");
+      throw new BadRequestException(`Failed to create purchase requisition: ${error.message || error}`);
     }
   }
 
