@@ -101,7 +101,8 @@ export class PurchaseRequisitionController {
   @ApiResponseDoc({ status: 200, description: "PR retrieved successfully" })
   @ApiResponseDoc({ status: 404, description: "PR not found" })
   async findOne(@Param("id") id: string) {
-    return this.prService.findOne(id);
+    const pr = await this.prService.findOne(id);
+    return { data: pr };
   }
 
   @Patch(":id")
