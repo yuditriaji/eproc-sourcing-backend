@@ -95,6 +95,24 @@ export class PurchaseRequisitionController {
     };
   }
 
+  @Get("pending/approvals")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER)
+  @ApiOperation({ summary: "Get pending approval PRs for current user" })
+  @ApiResponseDoc({ status: 200, description: "Pending approvals retrieved successfully" })
+  async getPendingApprovals(@Request() req: any) {
+    const prs = await this.prService.getPendingApprovalsForUser(req.user.id);
+    return { data: prs, meta: { total: prs.length } };
+  }
+
+  @Get("approval-history")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER)
+  @ApiOperation({ summary: "Get approval history (approved/rejected PRs)" })
+  @ApiResponseDoc({ status: 200, description: "Approval history retrieved successfully" })
+  async getApprovalHistory(@Request() req: any) {
+    const prs = await this.prService.getApprovalHistoryForUser(req.user.id);
+    return { data: prs, meta: { total: prs.length } };
+  }
+
   @Get(":id")
   @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: "Get Purchase Requisition by ID" })
@@ -159,23 +177,5 @@ export class PurchaseRequisitionController {
   async getStatistics(@Request() req: any) {
     const requesterId = req.user.role === UserRoleEnum.ADMIN ? undefined : req.user.id;
     return this.prService.getPRStatistics(requesterId);
-  }
-
-  @Get("pending/approvals")
-  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER)
-  @ApiOperation({ summary: "Get pending approval PRs for current user" })
-  @ApiResponseDoc({ status: 200, description: "Pending approvals retrieved successfully" })
-  async getPendingApprovals(@Request() req: any) {
-    const prs = await this.prService.getPendingApprovalsForUser(req.user.id);
-    return { data: prs, meta: { total: prs.length } };
-  }
-
-  @Get("approval-history")
-  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER)
-  @ApiOperation({ summary: "Get approval history (approved/rejected PRs)" })
-  @ApiResponseDoc({ status: 200, description: "Approval history retrieved successfully" })
-  async getApprovalHistory(@Request() req: any) {
-    const prs = await this.prService.getApprovalHistoryForUser(req.user.id);
-    return { data: prs, meta: { total: prs.length } };
   }
 }
