@@ -70,7 +70,7 @@ export class PurchaseOrderService {
     private events: EventService,
     @Inject(forwardRef(() => BudgetService))
     private budgetService: BudgetService,
-  ) {}
+  ) { }
 
   async create(
     createPODto: CreatePODto,
@@ -149,7 +149,7 @@ export class PurchaseOrderService {
       const user = await this.prisma.user.findUnique({
         where: { id: createdById },
       });
-      
+
       if (!user) {
         throw new BadRequestException("User not found");
       }
@@ -558,8 +558,12 @@ export class PurchaseOrderService {
       );
     }
 
-    // Add vendors
+    // Get tenantId from the PO
+    const tenantId = (po as any).tenantId;
+
+    // Add vendors - include tenantId as it's part of the composite key
     const poVendors = vendorIds.map((vendorId, index) => ({
+      tenantId,
       poId,
       vendorId,
       role: index === 0 ? ("PRIMARY" as const) : ("SECONDARY" as const), // First vendor is primary
@@ -758,10 +762,10 @@ export class PurchaseOrderService {
         deletedAt: null,
         ...(user.role === UserRoleEnum.MANAGER &&
           user.department && {
-            creator: {
-              department: user.department,
-            },
-          }),
+          creator: {
+            department: user.department,
+          },
+        }),
       },
       include: {
         creator: true,
