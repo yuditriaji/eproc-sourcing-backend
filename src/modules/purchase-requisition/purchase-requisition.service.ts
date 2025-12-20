@@ -597,21 +597,20 @@ export class PurchaseRequisitionService {
     }
 
     // Return PRs that have been approved or rejected
+    // ADMIN/MANAGER sees all; APPROVER sees only PRs they approved
+    const whereCondition: Prisma.PurchaseRequisitionWhereInput = {
+      status: { in: [PRStatus.APPROVED, PRStatus.REJECTED] },
+      deletedAt: null,
+      tenantId: user.tenantId,
+    };
+
+    // If not ADMIN/MANAGER, only show PRs they personally approved
+    if (user.role === UserRoleEnum.APPROVER) {
+      whereCondition.approvedById = userId;
+    }
+
     return this.prisma.purchaseRequisition.findMany({
-      where: {
-        OR: [
-          { status: PRStatus.APPROVED },
-          { status: PRStatus.REJECTED },
-        ],
-        deletedAt: null,
-        // ADMIN sees all; others see their department or approved by them
-        ...(user.role !== UserRoleEnum.ADMIN && {
-          OR: [
-            { approvedById: userId },
-            ...(user.department ? [{ requester: { department: user.department } }] : []),
-          ],
-        }),
-      },
+      where: whereCondition,
       include: {
         requester: true,
         approver: true,
