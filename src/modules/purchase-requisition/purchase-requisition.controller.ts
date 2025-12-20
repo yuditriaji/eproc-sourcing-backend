@@ -143,6 +143,16 @@ export class PurchaseRequisitionController {
   @ApiOperation({ summary: "Get pending approval PRs for current user" })
   @ApiResponseDoc({ status: 200, description: "Pending approvals retrieved successfully" })
   async getPendingApprovals(@Request() req: any) {
-    return this.prService.getPendingApprovalsForUser(req.user.id);
+    const prs = await this.prService.getPendingApprovalsForUser(req.user.id);
+    return { data: prs, meta: { total: prs.length } };
+  }
+
+  @Get("approval-history")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER)
+  @ApiOperation({ summary: "Get approval history (approved/rejected PRs)" })
+  @ApiResponseDoc({ status: 200, description: "Approval history retrieved successfully" })
+  async getApprovalHistory(@Request() req: any) {
+    const prs = await this.prService.getApprovalHistoryForUser(req.user.id);
+    return { data: prs, meta: { total: prs.length } };
   }
 }

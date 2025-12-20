@@ -581,4 +581,43 @@ export class PurchaseRequisitionService {
       orderBy: { createdAt: "asc" },
     });
   }
+
+  async getApprovalHistoryForUser(
+    userId: string,
+  ): Promise<PurchaseRequisition[]> {
+    // Get user role to determine what PRs they can see in history
+    const user = await this.prisma.user.findFirst({ where: { id: userId } });
+    if (
+      !user ||
+      ![UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER].includes(
+        user.role as any,
+      )
+    ) {
+      return [];
+    }
+
+    // Return PRs that have been approved or rejected
+    return this.prisma.purchaseRequisition.findMany({
+      where: {
+        OR: [
+          { status: PRStatus.APPROVED },
+          { status: PRStatus.REJECTED },
+        ],
+        deletedAt: null,
+        // ADMIN sees all; others see their department or approved by them
+        ...(user.role !== UserRoleEnum.ADMIN && {
+          OR: [
+            { approvedById: userId },
+            ...(user.department ? [{ requester: { department: user.department } }] : []),
+          ],
+        }),
+      },
+      include: {
+        requester: true,
+        approver: true,
+        contract: true,
+      },
+      orderBy: { approvedAt: "desc" },
+    });
+  }
 }
