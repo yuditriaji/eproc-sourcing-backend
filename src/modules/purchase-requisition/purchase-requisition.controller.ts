@@ -98,18 +98,30 @@ export class PurchaseRequisitionController {
   @Get("pending/approvals")
   @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER)
   @ApiOperation({ summary: "Get pending approval PRs for current user" })
+  @ApiQuery({ name: "search", required: false })
+  @ApiQuery({ name: "priority", required: false })
   @ApiResponseDoc({ status: 200, description: "Pending approvals retrieved successfully" })
-  async getPendingApprovals(@Request() req: any) {
-    const prs = await this.prService.getPendingApprovalsForUser(req.user.id);
+  async getPendingApprovals(
+    @Query("search") search: string = "",
+    @Query("priority") priority: string = "",
+    @Request() req: any,
+  ) {
+    const prs = await this.prService.getPendingApprovalsForUser(req.user.id, search, priority);
     return { data: prs, meta: { total: prs.length } };
   }
 
   @Get("approval-history")
   @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER)
   @ApiOperation({ summary: "Get approval history (approved/rejected PRs)" })
+  @ApiQuery({ name: "search", required: false })
+  @ApiQuery({ name: "action", required: false, description: "APPROVE or REJECT" })
   @ApiResponseDoc({ status: 200, description: "Approval history retrieved successfully" })
-  async getApprovalHistory(@Request() req: any) {
-    const prs = await this.prService.getApprovalHistoryForUser(req.user.id);
+  async getApprovalHistory(
+    @Query("search") search: string = "",
+    @Query("action") action: string = "",
+    @Request() req: any,
+  ) {
+    const prs = await this.prService.getApprovalHistoryForUser(req.user.id, search, action);
     return { data: prs, meta: { total: prs.length } };
   }
 

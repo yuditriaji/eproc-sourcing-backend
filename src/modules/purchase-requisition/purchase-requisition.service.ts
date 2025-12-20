@@ -549,6 +549,8 @@ export class PurchaseRequisitionService {
 
   async getPendingApprovalsForUser(
     userId: string,
+    search?: string,
+    priority?: string,
   ): Promise<PurchaseRequisition[]> {
     // Get user role to determine what PRs they can approve
     const user = await this.prisma.user.findFirst({ where: { id: userId } });
@@ -561,19 +563,35 @@ export class PurchaseRequisitionService {
       return [];
     }
 
-    // For now, return all pending PRs based on role
-    // In a more complex system, this would be based on approval workflows, departments, etc.
+    // Build where condition
+    const whereCondition: Prisma.PurchaseRequisitionWhereInput = {
+      status: PRStatus.PENDING,
+      deletedAt: null,
+      ...(user.role === UserRoleEnum.MANAGER &&
+        user.department && {
+        requester: {
+          department: user.department,
+        },
+      }),
+    };
+
+    // Add search filter
+    if (search) {
+      whereCondition.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { prNumber: { contains: search, mode: 'insensitive' } },
+        { requester: { firstName: { contains: search, mode: 'insensitive' } } },
+        { requester: { lastName: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    // Add priority filter
+    if (priority) {
+      whereCondition.priority = priority;
+    }
+
     return this.prisma.purchaseRequisition.findMany({
-      where: {
-        status: PRStatus.PENDING,
-        deletedAt: null,
-        ...(user.role === UserRoleEnum.MANAGER &&
-          user.department && {
-          requester: {
-            department: user.department,
-          },
-        }),
-      },
+      where: whereCondition,
       include: {
         requester: true,
         contract: true,
@@ -581,13 +599,13 @@ export class PurchaseRequisitionService {
       orderBy: { createdAt: "asc" },
     });
   }
-
   async getApprovalHistoryForUser(
     userId: string,
+    search?: string,
+    action?: string,
   ): Promise<PurchaseRequisition[]> {
     // Get user role to determine what PRs they can see in history
     const user = await this.prisma.user.findFirst({ where: { id: userId } });
-    console.log('getApprovalHistoryForUser - user:', user?.id, user?.role, 'tenantId:', user?.tenantId);
 
     if (
       !user ||
@@ -595,14 +613,21 @@ export class PurchaseRequisitionService {
         user.role as any,
       )
     ) {
-      console.log('getApprovalHistoryForUser - user not authorized');
       return [];
+    }
+
+    // Determine status filter based on action
+    let statusFilter: PRStatus[] = [PRStatus.APPROVED, PRStatus.REJECTED];
+    if (action === 'APPROVE') {
+      statusFilter = [PRStatus.APPROVED];
+    } else if (action === 'REJECT') {
+      statusFilter = [PRStatus.REJECTED];
     }
 
     // Return PRs that have been approved or rejected
     // ADMIN/MANAGER sees all; APPROVER sees only PRs they approved
     const whereCondition: Prisma.PurchaseRequisitionWhereInput = {
-      status: { in: [PRStatus.APPROVED, PRStatus.REJECTED] },
+      status: { in: statusFilter },
       deletedAt: null,
     };
 
@@ -611,7 +636,15 @@ export class PurchaseRequisitionService {
       whereCondition.approvedById = userId;
     }
 
-    console.log('getApprovalHistoryForUser - whereCondition:', JSON.stringify(whereCondition));
+    // Add search filter
+    if (search) {
+      whereCondition.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { prNumber: { contains: search, mode: 'insensitive' } },
+        { requester: { firstName: { contains: search, mode: 'insensitive' } } },
+        { requester: { lastName: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
 
     const results = await this.prisma.purchaseRequisition.findMany({
       where: whereCondition,
@@ -623,7 +656,6 @@ export class PurchaseRequisitionService {
       orderBy: { approvedAt: "desc" },
     });
 
-    console.log('getApprovalHistoryForUser - found', results.length, 'results');
     return results;
   }
 }
