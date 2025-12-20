@@ -157,7 +157,9 @@ export class PurchaseOrderController {
   @ApiResponseDoc({ status: 200, description: "PO retrieved successfully" })
   @ApiResponseDoc({ status: 404, description: "PO not found" })
   async findOne(@Param("id") id: string) {
-    return this.poService.findOne(id);
+    const po = await this.poService.findOne(id);
+    // Return in format frontend expects
+    return { data: po };
   }
 
   @Patch(":id")
