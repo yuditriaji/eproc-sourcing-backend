@@ -92,6 +92,67 @@ export class PurchaseOrderController {
     };
   }
 
+  @Get("approval-history")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.APPROVER)
+  @ApiOperation({ summary: "Get PO approval history (approved/rejected POs)" })
+  @ApiQuery({ name: "page", required: false })
+  @ApiQuery({ name: "pageSize", required: false })
+  @ApiQuery({ name: "search", required: false })
+  @ApiQuery({ name: "action", required: false, description: "APPROVE or REJECT" })
+  @ApiResponseDoc({ status: 200, description: "PO approval history retrieved successfully" })
+  async getApprovalHistory(
+    @Query("page") page: string = "1",
+    @Query("pageSize") pageSize: string = "20",
+    @Query("search") search: string = "",
+    @Query("action") action: string = "",
+    @Request() req: any,
+  ) {
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(pageSize) || 20;
+
+    // Get POs that are APPROVED or REJECTED
+    const statusFilter = action === 'APPROVE' ? 'APPROVED' : action === 'REJECT' ? 'REJECTED' : undefined;
+
+    // If action is empty, get both approved and rejected
+    let allPos: any[] = [];
+
+    if (!statusFilter) {
+      const approvedResult = await this.poService.findAll(pageNum, limitNum, 'APPROVED' as any, undefined, undefined, search || undefined);
+      const rejectedResult = await this.poService.findAll(pageNum, limitNum, 'REJECTED' as any, undefined, undefined, search || undefined);
+      allPos = [...approvedResult.pos, ...rejectedResult.pos];
+    } else {
+      const result = await this.poService.findAll(pageNum, limitNum, statusFilter as any, undefined, undefined, search || undefined);
+      allPos = result.pos;
+    }
+
+    // Transform to match approval history format
+    return {
+      data: allPos.map((po: any) => ({
+        id: po.id,
+        type: 'PURCHASE_ORDER',
+        referenceNumber: po.poNumber,
+        title: po.title,
+        description: po.description,
+        amount: po.totalAmount || po.amount,
+        currency: po.currency?.code || 'USD',
+        status: po.status,
+        action: po.status === 'APPROVED' ? 'APPROVE' : 'REJECT',
+        requesterId: po.createdById,
+        requesterName: po.creator ? `${po.creator.firstName || ''} ${po.creator.lastName || ''}`.trim() : 'Unknown',
+        approverId: po.approvedById,
+        approverName: po.approver ? `${po.approver.firstName || ''} ${po.approver.lastName || ''}`.trim() : 'Unknown',
+        processedAt: po.approvedAt,
+        createdAt: po.createdAt,
+      })),
+      meta: {
+        total: allPos.length,
+        page: pageNum,
+        pageSize: limitNum,
+        totalPages: Math.ceil(allPos.length / limitNum),
+      }
+    };
+  }
+
   @Post(":id/submit")
   @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Submit PO for approval" })
