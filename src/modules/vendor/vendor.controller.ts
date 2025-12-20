@@ -215,7 +215,7 @@ class CreateVendorUserDto {
 @UseGuards(AuthGuard("jwt"))
 @UseInterceptors(ClassSerializerInterceptor)
 export class VendorController {
-  constructor(private readonly vendorService: VendorService) {}
+  constructor(private readonly vendorService: VendorService) { }
 
   @Post()
   @UseGuards(RolesGuard)
@@ -225,8 +225,8 @@ export class VendorController {
     summary: "Create supplier (vendor) with optional user account",
     description: "Creates vendor company. If createUserAccount=true, also creates login credentials with auto-generated password.",
   })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: "Vendor created successfully",
     schema: {
       example: {
@@ -274,13 +274,23 @@ export class VendorController {
   }
 
   @Get('active')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get active vendors',
     description: 'Returns a simplified list of active vendors for dropdowns and selection',
   })
   @ApiResponse({ status: 200, description: 'List of active vendors' })
   async getActive() {
     return this.vendorService.getActiveVendors();
+  }
+
+  @Get('performance')
+  @ApiOperation({
+    summary: 'Get vendor performance statistics',
+    description: 'Returns aggregate performance metrics, top performers, and vendors needing attention',
+  })
+  @ApiResponse({ status: 200, description: 'Vendor performance statistics' })
+  async getPerformance() {
+    return this.vendorService.getVendorPerformanceStats();
   }
 
   @Get(':id')
@@ -294,7 +304,7 @@ export class VendorController {
   @Put(':id')
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'USER')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update vendor - ADMIN and USER roles only',
     description: 'Updates vendor information. Validates organizational assignments.',
   })
@@ -308,7 +318,7 @@ export class VendorController {
   @Put(':id/rating')
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'USER')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update vendor rating - ADMIN and USER roles only',
     description: 'Updates vendor performance rating and on-time delivery percentage',
   })
@@ -322,7 +332,7 @@ export class VendorController {
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Delete vendor - ADMIN role only',
     description: 'Deletes a vendor. If vendor has relationships, it will be soft-deleted. Otherwise, hard-deleted.',
   })
@@ -336,12 +346,12 @@ export class VendorController {
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
   @ApiBearerAuth()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Create user account for vendor (Admin only)',
     description: 'Creates a login account for vendor with auto-generated password. Vendor must change password on first login.',
   })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Vendor user created successfully',
     schema: {
       example: {

@@ -60,7 +60,7 @@ export class VendorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContext,
-  ) {}
+  ) { }
 
   async createVendor(dto: CreateVendorDto, tenantId?: string, adminUserId?: string) {
     // Enforce uniqueness by name+contactEmail within tenant via schema constraints where possible
@@ -80,7 +80,7 @@ export class VendorService {
             companyCodeId: companyCodeId,
           },
         }) : null;
-        
+
         // Check if purchasing org is assigned to plant
         const plantAssignment = plantId ? await this.prisma.purchasingOrgAssignment.findFirst({
           where: {
@@ -88,7 +88,7 @@ export class VendorService {
             plantId: plantId,
           },
         }) : null;
-        
+
         // At least one assignment must exist
         if (!companyAssignment && !plantAssignment) {
           throw new BadRequestException(
@@ -222,7 +222,7 @@ export class VendorService {
 
   async getVendor(id: string) {
     const tenantId = this.tenantContext.getTenantId();
-    
+
     const vendor = await this.prisma.vendor.findFirst({
       where: { id, tenantId, deletedAt: null },
       include: {
@@ -232,7 +232,7 @@ export class VendorService {
         purchasingOrg: { select: { code: true, name: true } },
         purchasingGroup: { select: { code: true, name: true } },
         contracts: {
-          select: { 
+          select: {
             contract: {
               select: { id: true, contractNumber: true, status: true }
             }
@@ -372,7 +372,7 @@ export class VendorService {
 
   async getActiveVendors() {
     const tenantId = this.tenantContext.getTenantId();
-    
+
     return this.prisma.vendor.findMany({
       where: { tenantId, status: 'ACTIVE', deletedAt: null },
       orderBy: { name: 'asc' },
@@ -386,6 +386,85 @@ export class VendorService {
     });
   }
 
+  async getVendorPerformanceStats() {
+    const tenantId = this.tenantContext.getTenantId();
+
+    // Get all active vendors with metrics
+    const vendors = await this.prisma.vendor.findMany({
+      where: { tenantId, status: 'ACTIVE', deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        rating: true,
+        onTimeDelivery: true,
+        totalContracts: true,
+        businessType: true,
+      },
+      orderBy: { rating: 'desc' },
+    });
+
+    const vendorsWithRating = vendors.filter(v => v.rating !== null);
+    const vendorsWithDelivery = vendors.filter(v => v.onTimeDelivery !== null);
+
+    // Calculate aggregates
+    const avgRating = vendorsWithRating.length > 0
+      ? vendorsWithRating.reduce((sum, v) => sum + Number(v.rating), 0) / vendorsWithRating.length
+      : 0;
+
+    const avgOnTimeDelivery = vendorsWithDelivery.length > 0
+      ? vendorsWithDelivery.reduce((sum, v) => sum + Number(v.onTimeDelivery), 0) / vendorsWithDelivery.length
+      : 0;
+
+    // Overall performance score (weighted average)
+    // Rating is 0-5, we convert to 0-100
+    const ratingPercentage = (avgRating / 5) * 100;
+    const overallScore = vendorsWithRating.length > 0 || vendorsWithDelivery.length > 0
+      ? ((ratingPercentage * 0.6) + (avgOnTimeDelivery * 0.4))
+      : 0;
+
+    // Top performing vendors (top 5 by rating)
+    const topPerformers = vendorsWithRating.slice(0, 5).map((v, index) => ({
+      id: v.id,
+      rank: index + 1,
+      name: v.name,
+      rating: Number(v.rating),
+      onTimeDelivery: v.onTimeDelivery ? Number(v.onTimeDelivery) : null,
+      businessType: v.businessType,
+      // Convert rating (0-5) to percentage (0-100)
+      score: Math.round((Number(v.rating) / 5) * 100),
+    }));
+
+    // Low performing vendors (vendors with rating < 3)
+    const lowPerformers = vendorsWithRating
+      .filter(v => Number(v.rating) < 3)
+      .map(v => ({
+        id: v.id,
+        name: v.name,
+        rating: Number(v.rating),
+        businessType: v.businessType,
+        score: Math.round((Number(v.rating) / 5) * 100),
+      }));
+
+    return {
+      summary: {
+        totalVendors: vendors.length,
+        vendorsWithRating: vendorsWithRating.length,
+        overallScore: Math.round(overallScore * 10) / 10,
+        averageRating: Math.round(avgRating * 100) / 100,
+        averageOnTimeDelivery: Math.round(avgOnTimeDelivery * 10) / 10,
+      },
+      metrics: {
+        quality: Math.round(ratingPercentage),
+        delivery: Math.round(avgOnTimeDelivery),
+        // These are placeholder metrics - in a real system they'd be calculated from other data
+        compliance: vendorsWithRating.length > 0 ? 90 : 0, // Placeholder
+        responsiveness: vendorsWithRating.length > 0 ? 85 : 0, // Placeholder
+      },
+      topPerformers,
+      lowPerformers,
+    };
+  }
+
   /**
    * Generate a secure random password
    * Format: [Uppercase][Lowercase][Numbers][Special]...
@@ -397,20 +476,20 @@ export class VendorService {
     const numbers = '0123456789';
     const special = '!@#$%^&*';
     const allChars = uppercase + lowercase + numbers + special;
-    
+
     let password = '';
-    
+
     // Ensure at least one of each type
     password += uppercase[Math.floor(Math.random() * uppercase.length)];
     password += lowercase[Math.floor(Math.random() * lowercase.length)];
     password += numbers[Math.floor(Math.random() * numbers.length)];
     password += special[Math.floor(Math.random() * special.length)];
-    
+
     // Fill the rest randomly
     for (let i = password.length; i < length; i++) {
       password += allChars[Math.floor(Math.random() * allChars.length)];
     }
-    
+
     // Shuffle the password
     return password.split('').sort(() => Math.random() - 0.5).join('');
   }
