@@ -278,6 +278,7 @@ export class PurchaseOrderService {
     status?: POStatus,
     createdById?: string,
     contractId?: string,
+    search?: string,
   ): Promise<{ pos: PurchaseOrder[]; total: number }> {
     const skip = (page - 1) * limit;
     const where: Prisma.PurchaseOrderWhereInput = {
@@ -286,6 +287,15 @@ export class PurchaseOrderService {
       ...(createdById && { createdById }),
       ...(contractId && { contractId }),
     };
+
+    // Add search filter
+    if (search) {
+      where.OR = [
+        { poNumber: { contains: search, mode: 'insensitive' } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { vendors: { some: { vendor: { name: { contains: search, mode: 'insensitive' } } } } },
+      ];
+    }
 
     const [pos, total] = await Promise.all([
       this.prisma.purchaseOrder.findMany({
