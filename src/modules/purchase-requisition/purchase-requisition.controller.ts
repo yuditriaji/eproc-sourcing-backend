@@ -119,6 +119,29 @@ export class PurchaseRequisitionController {
     return this.prService.update(id, updatePRDto, req.user.id);
   }
 
+  @Post(":id/approve")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER)
+  @ApiOperation({ summary: "Approve or reject a Purchase Requisition" })
+  @ApiResponseDoc({ status: 200, description: "PR approved/rejected successfully" })
+  @ApiResponseDoc({ status: 400, description: "PR cannot be approved (not in PENDING status)" })
+  @ApiResponseDoc({ status: 403, description: "User not authorized to approve" })
+  async approve(
+    @Param("id") id: string,
+    @Body() approveDto: { approved: boolean; comments?: string; rejectionReason?: string },
+    @Request() req: any,
+  ) {
+    const result = await this.prService.approve(
+      id,
+      {
+        approved: approveDto.approved,
+        comments: approveDto.comments,
+        rejectionReason: approveDto.rejectionReason,
+      },
+      req.user.id
+    );
+    return { data: result };
+  }
+
   @Delete(":id")
   @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER)
   @ApiOperation({ summary: "Delete Purchase Requisition" })
