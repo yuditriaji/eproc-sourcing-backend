@@ -587,12 +587,15 @@ export class PurchaseRequisitionService {
   ): Promise<PurchaseRequisition[]> {
     // Get user role to determine what PRs they can see in history
     const user = await this.prisma.user.findFirst({ where: { id: userId } });
+    console.log('getApprovalHistoryForUser - user:', user?.id, user?.role, 'tenantId:', user?.tenantId);
+
     if (
       !user ||
       ![UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.APPROVER].includes(
         user.role as any,
       )
     ) {
+      console.log('getApprovalHistoryForUser - user not authorized');
       return [];
     }
 
@@ -601,7 +604,6 @@ export class PurchaseRequisitionService {
     const whereCondition: Prisma.PurchaseRequisitionWhereInput = {
       status: { in: [PRStatus.APPROVED, PRStatus.REJECTED] },
       deletedAt: null,
-      tenantId: user.tenantId,
     };
 
     // If not ADMIN/MANAGER, only show PRs they personally approved
@@ -609,7 +611,9 @@ export class PurchaseRequisitionService {
       whereCondition.approvedById = userId;
     }
 
-    return this.prisma.purchaseRequisition.findMany({
+    console.log('getApprovalHistoryForUser - whereCondition:', JSON.stringify(whereCondition));
+
+    const results = await this.prisma.purchaseRequisition.findMany({
       where: whereCondition,
       include: {
         requester: true,
@@ -618,5 +622,8 @@ export class PurchaseRequisitionService {
       },
       orderBy: { approvedAt: "desc" },
     });
+
+    console.log('getApprovalHistoryForUser - found', results.length, 'results');
+    return results;
   }
 }
