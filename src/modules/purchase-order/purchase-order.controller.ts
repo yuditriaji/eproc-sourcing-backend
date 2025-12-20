@@ -41,6 +41,67 @@ export class PurchaseOrderController {
     return this.poService.create(createPODto, req.user.id);
   }
 
+  // Static routes MUST come before dynamic routes
+  @Get("pending/approvals")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.APPROVER)
+  @ApiOperation({ summary: "Get all POs pending approval" })
+  @ApiQuery({ name: "page", required: false })
+  @ApiQuery({ name: "pageSize", required: false })
+  @ApiQuery({ name: "search", required: false })
+  @ApiResponseDoc({ status: 200, description: "Pending POs retrieved successfully" })
+  async getPendingApprovals(
+    @Query("page") page: string = "1",
+    @Query("pageSize") pageSize: string = "20",
+    @Query("search") search: string = "",
+  ) {
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(pageSize) || 20;
+
+    const result = await this.poService.findAll(
+      pageNum,
+      limitNum,
+      'PENDING_APPROVAL' as any,
+      undefined, // no createdById filter - approvers see all
+      undefined, // no contractId filter
+      search || undefined,
+    );
+
+    // Transform to match approval page expected format
+    return {
+      data: result.pos.map((po: any) => ({
+        id: po.id,
+        type: 'PURCHASE_ORDER',
+        referenceNumber: po.poNumber,
+        title: po.title,
+        description: po.description,
+        amount: po.totalAmount || po.amount,
+        currency: po.currency?.code || 'USD',
+        priority: 'MEDIUM', // Default priority
+        status: po.status,
+        requesterId: po.createdById,
+        requesterName: po.creator ? `${po.creator.firstName || ''} ${po.creator.lastName || ''}`.trim() : 'Unknown',
+        createdAt: po.createdAt,
+        dueDate: po.expectedDelivery,
+      })),
+      meta: {
+        total: result.total,
+        page: pageNum,
+        pageSize: limitNum,
+        totalPages: Math.ceil(result.total / limitNum),
+      }
+    };
+  }
+
+  @Post(":id/submit")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
+  @ApiOperation({ summary: "Submit PO for approval" })
+  @ApiResponseDoc({ status: 200, description: "PO submitted for approval" })
+  @ApiResponseDoc({ status: 400, description: "Bad request" })
+  @ApiResponseDoc({ status: 404, description: "PO not found" })
+  async submitForApproval(@Param("id") id: string, @Request() req: any) {
+    return this.poService.submitForApproval(id, req.user.id);
+  }
+
   @Get()
   @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE)
   @ApiOperation({ summary: "Get all Purchase Orders" })
@@ -65,8 +126,9 @@ export class PurchaseOrderController {
     // Support both limit and pageSize params
     const limitNum = parseInt(limit) || parseInt(pageSize) || 10;
 
-    // For non-admin users, show only their own POs
-    const filterCreatedById = req.user.role === UserRoleEnum.ADMIN ? (createdById || undefined) : req.user.id;
+    // Admins and Managers can see all POs, others only see their own
+    const canSeeAll = req.user.role === UserRoleEnum.ADMIN || req.user.role === UserRoleEnum.MANAGER;
+    const filterCreatedById = canSeeAll ? (createdById || undefined) : req.user.id;
 
     const result = await this.poService.findAll(
       pageNum,
@@ -172,13 +234,5 @@ export class PurchaseOrderController {
   async getStatistics(@Request() req: any) {
     const createdById = req.user.role === UserRoleEnum.ADMIN ? undefined : req.user.id;
     return this.poService.getPOStatistics(createdById);
-  }
-
-  @Get("pending/approvals")
-  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.APPROVER)
-  @ApiOperation({ summary: "Get pending approval POs for current user" })
-  @ApiResponseDoc({ status: 200, description: "Pending approvals retrieved successfully" })
-  async getPendingApprovals(@Request() req: any) {
-    return this.poService.getPendingApprovalsForUser(req.user.id);
   }
 }

@@ -476,6 +476,60 @@ export class PurchaseOrderService {
     return updatedPO;
   }
 
+  /**
+   * Submit a PO for approval - transitions from DRAFT to PENDING_APPROVAL
+   */
+  async submitForApproval(
+    id: string,
+    userId: string,
+  ): Promise<PurchaseOrder> {
+    const po = await this.findOne(id);
+
+    // Check if PO is in correct state
+    if (po.status !== POStatus.DRAFT) {
+      throw new BadRequestException("Only draft POs can be submitted for approval");
+    }
+
+    const updatedPO = await this.prisma.purchaseOrder.update({
+      where: { id },
+      data: {
+        status: POStatus.PENDING_APPROVAL,
+        updatedAt: new Date(),
+      },
+      include: {
+        purchaseRequisition: true,
+        contract: true,
+        currency: true,
+        creator: true,
+        approver: true,
+        vendors: {
+          include: {
+            vendor: true,
+          },
+        },
+      },
+    });
+
+    // Audit log
+    await this.audit.log({
+      action: "PO_SUBMITTED_FOR_APPROVAL",
+      targetType: "PurchaseOrder",
+      targetId: id,
+      userId: userId,
+      oldValues: po,
+      newValues: updatedPO,
+    });
+
+    // Emit event
+    await this.events.emit("po.submitted_for_approval", {
+      poId: id,
+      userId,
+      po: updatedPO,
+    });
+
+    return updatedPO;
+  }
+
   async approve(
     id: string,
     approvePODto: ApprovePODto,
@@ -483,9 +537,9 @@ export class PurchaseOrderService {
   ): Promise<PurchaseOrder> {
     const po = await this.findOne(id);
 
-    // Check if PO can be approved
-    if (po.status !== POStatus.DRAFT) {
-      throw new BadRequestException("Only draft POs can be approved");
+    // Check if PO can be approved - now checks for PENDING_APPROVAL status
+    if (po.status !== POStatus.PENDING_APPROVAL && po.status !== POStatus.DRAFT) {
+      throw new BadRequestException("Only pending approval or draft POs can be approved");
     }
 
     // Check if user has approval rights
@@ -718,8 +772,10 @@ export class PurchaseOrderService {
     newStatus: POStatus,
   ): boolean {
     const validTransitions: Record<POStatus, POStatus[]> = {
-      [POStatus.DRAFT]: [POStatus.APPROVED, POStatus.CANCELLED],
+      [POStatus.DRAFT]: [POStatus.PENDING_APPROVAL, POStatus.CANCELLED],
+      [POStatus.PENDING_APPROVAL]: [POStatus.APPROVED, POStatus.REJECTED],
       [POStatus.APPROVED]: [POStatus.IN_PROGRESS, POStatus.CANCELLED],
+      [POStatus.REJECTED]: [POStatus.DRAFT], // Can be revised and resubmitted
       [POStatus.IN_PROGRESS]: [POStatus.DELIVERED, POStatus.CANCELLED],
       [POStatus.DELIVERED]: [POStatus.COMPLETED],
       [POStatus.COMPLETED]: [],
