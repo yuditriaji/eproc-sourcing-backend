@@ -100,12 +100,18 @@ export class PurchaseRequisitionController {
   @ApiOperation({ summary: "Get pending approval PRs for current user" })
   @ApiQuery({ name: "search", required: false })
   @ApiQuery({ name: "priority", required: false })
+  @ApiQuery({ name: "type", required: false, description: "Entity type filter (PURCHASE_REQUISITION, etc.)" })
   @ApiResponseDoc({ status: 200, description: "Pending approvals retrieved successfully" })
   async getPendingApprovals(
     @Query("search") search: string = "",
     @Query("priority") priority: string = "",
+    @Query("type") type: string = "",
     @Request() req: any,
   ) {
+    // Currently we only support PRs - other types will return empty
+    if (type && type !== 'PURCHASE_REQUISITION') {
+      return { data: [], meta: { total: 0 } };
+    }
     const prs = await this.prService.getPendingApprovalsForUser(req.user.id, search, priority);
     return { data: prs, meta: { total: prs.length } };
   }
@@ -115,12 +121,18 @@ export class PurchaseRequisitionController {
   @ApiOperation({ summary: "Get approval history (approved/rejected PRs)" })
   @ApiQuery({ name: "search", required: false })
   @ApiQuery({ name: "action", required: false, description: "APPROVE or REJECT" })
+  @ApiQuery({ name: "type", required: false, description: "Entity type filter (PURCHASE_REQUISITION, etc.)" })
   @ApiResponseDoc({ status: 200, description: "Approval history retrieved successfully" })
   async getApprovalHistory(
     @Query("search") search: string = "",
     @Query("action") action: string = "",
+    @Query("type") type: string = "",
     @Request() req: any,
   ) {
+    // Currently we only support PRs - other types will return empty
+    if (type && type !== 'PURCHASE_REQUISITION') {
+      return { data: [], meta: { total: 0 } };
+    }
     const prs = await this.prService.getApprovalHistoryForUser(req.user.id, search, action);
     return { data: prs, meta: { total: prs.length } };
   }
