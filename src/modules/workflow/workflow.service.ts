@@ -935,7 +935,7 @@ export class WorkflowService {
           currencyId: quotation.currencyId,
           startDate: contractDetails?.startDate || new Date(),
           endDate: contractDetails?.endDate,
-          status: ContractStatus.DRAFT,
+          status: ContractStatus.PENDING_APPROVAL,
           ownerId: userId,
           terms: contractDetails?.terms || quotation.terms,
           deliverables: contractDetails?.deliverables || quotation.items,

@@ -469,7 +469,8 @@ export class ContractService {
     newStatus: ContractStatus,
   ): boolean {
     const validTransitions: Record<ContractStatus, ContractStatus[]> = {
-      [ContractStatus.DRAFT]: [ContractStatus.IN_PROGRESS],
+      [ContractStatus.DRAFT]: [ContractStatus.PENDING_APPROVAL, ContractStatus.IN_PROGRESS],
+      [ContractStatus.PENDING_APPROVAL]: [ContractStatus.IN_PROGRESS, ContractStatus.DRAFT],
       [ContractStatus.IN_PROGRESS]: [
         ContractStatus.COMPLETED,
         ContractStatus.TERMINATED,

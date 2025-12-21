@@ -1081,6 +1081,7 @@ enum VendorStatus {
 
 enum ContractStatus {
   DRAFT
+  PENDING_APPROVAL
   IN_PROGRESS
   COMPLETED
   CLOSED
