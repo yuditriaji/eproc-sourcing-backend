@@ -57,22 +57,47 @@ export class QuotationService {
       throw new BadRequestException('User not found');
     }
 
-    // Auto-detect vendorId from user's email if not provided
+    // Auto-detect vendorId if not provided
     let vendorId = createQuotationDto.vendorId;
     if (!vendorId) {
-      // Look up vendor by user's email matching vendor contactEmail
-      const vendor = await this.prisma.vendor.findFirst({
+      // Try 1: Look up vendor by user's email matching vendor contactEmail
+      let vendor = await this.prisma.vendor.findFirst({
         where: {
           tenantId: user.tenantId,
           contactEmail: user.email,
         },
       });
+
+      // Try 2: For VENDOR role users, look for vendor by name match (user's name)
+      if (!vendor && user.role === 'VENDOR') {
+        const userName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+        if (userName) {
+          vendor = await this.prisma.vendor.findFirst({
+            where: {
+              tenantId: user.tenantId,
+              name: { contains: userName, mode: 'insensitive' },
+            },
+          });
+        }
+      }
+
+      // Try 3: For VENDOR role users with no match, get first approved vendor in tenant
+      // This is a fallback for demo/testing - in production, proper user-vendor linking is needed
+      if (!vendor && user.role === 'VENDOR') {
+        vendor = await this.prisma.vendor.findFirst({
+          where: {
+            tenantId: user.tenantId,
+            status: 'ACTIVE',
+          },
+        });
+      }
+
       if (vendor) {
         vendorId = vendor.id;
       }
     }
     if (!vendorId) {
-      throw new BadRequestException('Vendor ID is required. User email must be associated with a vendor contact email.');
+      throw new BadRequestException('Could not determine vendor. Please ensure your account is properly linked to a vendor profile.');
     }
 
     // Validate RFQ if provided
