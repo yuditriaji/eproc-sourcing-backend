@@ -180,7 +180,48 @@ export class QuotationService {
 
     // Vendors can only see their own quotations
     if (role === UserRoleEnum.VENDOR) {
-      where.vendorId = userId;
+      // Look up the vendor linked to this user
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (user) {
+        // Find vendor by email match or name match (same logic as create)
+        let vendor = await this.prisma.vendor.findFirst({
+          where: {
+            tenantId,
+            contactEmail: user.email,
+          },
+        });
+
+        if (!vendor) {
+          const userName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+          if (userName) {
+            vendor = await this.prisma.vendor.findFirst({
+              where: {
+                tenantId,
+                name: { contains: userName, mode: 'insensitive' },
+              },
+            });
+          }
+        }
+
+        if (!vendor) {
+          vendor = await this.prisma.vendor.findFirst({
+            where: {
+              tenantId,
+              status: 'ACTIVE',
+            },
+          });
+        }
+
+        if (vendor) {
+          where.vendorId = vendor.id;
+        } else {
+          // No vendor found - return empty
+          where.vendorId = 'no-vendor-found';
+        }
+      }
     }
 
     const [data, total] = await Promise.all([
@@ -190,6 +231,7 @@ export class QuotationService {
         take: limit,
         include: {
           vendor: true,
+          rfq: true,
           tender: true,
           currency: true,
         },
