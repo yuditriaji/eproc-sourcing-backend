@@ -305,6 +305,7 @@ export class QuotationService {
       },
       include: {
         vendor: true,
+        rfq: true,
         tender: true,
         currency: true,
       },
