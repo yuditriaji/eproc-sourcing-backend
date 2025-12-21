@@ -66,7 +66,7 @@ export class RFQController {
         const pageNum = parseInt(page) || 1;
         const limitNum = parseInt(limit) || 20;
 
-        return this.rfqService.findAll(
+        const result = await this.rfqService.findAll(
             req.user.tenantId,
             req.user.role,
             req.user.id,
@@ -74,6 +74,16 @@ export class RFQController {
             limitNum,
             { status, prId, search },
         );
+
+        return {
+            data: result.data,
+            meta: {
+                total: result.total,
+                page: result.page,
+                pageSize: result.limit,
+                totalPages: Math.ceil(result.total / result.limit),
+            },
+        };
     }
 
     @Get(':id')
@@ -85,7 +95,8 @@ export class RFQController {
     })
     @ApiResponse({ status: 404, description: 'RFQ not found' })
     async findOne(@Param('id') id: string, @Request() req: any) {
-        return this.rfqService.findOne(id, req.user.tenantId);
+        const rfq = await this.rfqService.findOne(id, req.user.tenantId);
+        return { data: rfq };
     }
 
     @Patch(':id')
