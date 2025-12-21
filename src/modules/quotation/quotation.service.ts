@@ -296,7 +296,7 @@ export class QuotationService {
     };
   }
 
-  async findOne(id: string, tenantId: string): Promise<Quotation> {
+  async findOne(id: string, tenantId: string, role?: string, userId?: string): Promise<Quotation> {
     const quotation = await this.prisma.quotation.findFirst({
       where: {
         id,
@@ -313,6 +313,29 @@ export class QuotationService {
 
     if (!quotation) {
       throw new NotFoundException('Quotation not found');
+    }
+
+    // For VENDOR role, verify they own this quotation
+    if (role === 'VENDOR' && userId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (user && quotation.vendor) {
+        // Check if vendor email matches user email, or vendor name contains user's email prefix/domain
+        const emailParts = user.email.split('@');
+        const username = emailParts[0];
+        const domain = emailParts[1]?.split('.')[0];
+
+        const isOwner =
+          quotation.vendor.contactEmail === user.email ||
+          (quotation.vendor.name && quotation.vendor.name.toLowerCase().includes(username.toLowerCase())) ||
+          (domain && quotation.vendor.name && quotation.vendor.name.toLowerCase().includes(domain.toLowerCase()));
+
+        if (!isOwner) {
+          throw new NotFoundException('Quotation not found');
+        }
+      }
     }
 
     return quotation;

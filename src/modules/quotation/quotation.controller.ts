@@ -81,7 +81,7 @@ export class QuotationController {
   })
   @ApiResponse({ status: 404, description: 'Quotation not found' })
   async findOne(@Param('id') id: string, @Request() req: any) {
-    return this.quotationService.findOne(id, req.user.tenantId);
+    return this.quotationService.findOne(id, req.user.tenantId, req.user.role, req.user.id);
   }
 
   @Patch(':id')
