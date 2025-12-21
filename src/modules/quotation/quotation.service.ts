@@ -68,7 +68,35 @@ export class QuotationService {
         },
       });
 
-      // Try 2: For VENDOR role users, look for vendor by name match (user's name)
+      // Try 2: Look up vendor by username (email prefix) in vendor name
+      if (!vendor && user.role === 'VENDOR') {
+        // Extract username from email (e.g., vendor@sam.com -> vendor, sam)
+        const emailParts = user.email.split('@');
+        const username = emailParts[0]; // e.g., "vendor"
+        const domain = emailParts[1]?.split('.')[0]; // e.g., "sam"
+
+        // Try to find vendor by username in name
+        vendor = await this.prisma.vendor.findFirst({
+          where: {
+            tenantId: user.tenantId,
+            name: { contains: username, mode: 'insensitive' },
+            status: 'ACTIVE',
+          },
+        });
+
+        // If not found, try domain name
+        if (!vendor && domain) {
+          vendor = await this.prisma.vendor.findFirst({
+            where: {
+              tenantId: user.tenantId,
+              name: { contains: domain, mode: 'insensitive' },
+              status: 'ACTIVE',
+            },
+          });
+        }
+      }
+
+      // Try 3: For VENDOR role, look for vendor by user's full name
       if (!vendor && user.role === 'VENDOR') {
         const userName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
         if (userName) {
@@ -76,28 +104,22 @@ export class QuotationService {
             where: {
               tenantId: user.tenantId,
               name: { contains: userName, mode: 'insensitive' },
+              status: 'ACTIVE',
             },
           });
         }
       }
 
-      // Try 3: For VENDOR role users with no match, get first approved vendor in tenant
-      // This is a fallback for demo/testing - in production, proper user-vendor linking is needed
-      if (!vendor && user.role === 'VENDOR') {
-        vendor = await this.prisma.vendor.findFirst({
-          where: {
-            tenantId: user.tenantId,
-            status: 'ACTIVE',
-          },
-        });
-      }
-
+      // NO MORE BROAD FALLBACK - require proper vendor linking
       if (vendor) {
         vendorId = vendor.id;
       }
     }
     if (!vendorId) {
-      throw new BadRequestException('Could not determine vendor. Please ensure your account is properly linked to a vendor profile.');
+      throw new BadRequestException(
+        'Could not determine your vendor profile. Please ensure your user email matches the vendor contact email, ' +
+        'or contact admin to link your account to a vendor.'
+      );
     }
 
     // Validate RFQ if provided
@@ -192,7 +214,7 @@ export class QuotationService {
       });
 
       if (user) {
-        // Find vendor by email match or name match (same logic as create)
+        // Try 1: Find vendor by email match
         let vendor = await this.prisma.vendor.findFirst({
           where: {
             tenantId,
@@ -200,6 +222,32 @@ export class QuotationService {
           },
         });
 
+        // Try 2: Look up vendor by username (email prefix) in vendor name
+        if (!vendor) {
+          const emailParts = user.email.split('@');
+          const username = emailParts[0];
+          const domain = emailParts[1]?.split('.')[0];
+
+          vendor = await this.prisma.vendor.findFirst({
+            where: {
+              tenantId,
+              name: { contains: username, mode: 'insensitive' },
+              status: 'ACTIVE',
+            },
+          });
+
+          if (!vendor && domain) {
+            vendor = await this.prisma.vendor.findFirst({
+              where: {
+                tenantId,
+                name: { contains: domain, mode: 'insensitive' },
+                status: 'ACTIVE',
+              },
+            });
+          }
+        }
+
+        // Try 3: Look for vendor by user's full name
         if (!vendor) {
           const userName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
           if (userName) {
@@ -207,24 +255,16 @@ export class QuotationService {
               where: {
                 tenantId,
                 name: { contains: userName, mode: 'insensitive' },
+                status: 'ACTIVE',
               },
             });
           }
         }
 
-        if (!vendor) {
-          vendor = await this.prisma.vendor.findFirst({
-            where: {
-              tenantId,
-              status: 'ACTIVE',
-            },
-          });
-        }
-
         if (vendor) {
           where.vendorId = vendor.id;
         } else {
-          // No vendor found - return empty
+          // No vendor found - return empty results
           where.vendorId = 'no-vendor-found';
         }
       }
