@@ -32,7 +32,7 @@ import {
 @Controller(':tenant/quotations')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class QuotationController {
-  constructor(private readonly quotationService: QuotationService) {}
+  constructor(private readonly quotationService: QuotationService) { }
 
   @Post()
   @Roles(UserRoleEnum.VENDOR, UserRoleEnum.ADMIN)
@@ -48,6 +48,7 @@ export class QuotationController {
   @ApiOperation({ summary: 'Get all quotations' })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'status', required: false })
   @ApiResponse({
     status: 200,
     description: 'Quotations retrieved successfully',
@@ -55,6 +56,7 @@ export class QuotationController {
   async findAll(
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '20',
+    @Query('status') status: string,
     @Request() req: any,
   ) {
     const pageNum = parseInt(page) || 1;
@@ -66,6 +68,7 @@ export class QuotationController {
       req.user.id,
       pageNum,
       limitNum,
+      status,
     );
   }
 

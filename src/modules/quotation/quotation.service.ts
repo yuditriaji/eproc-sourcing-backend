@@ -165,6 +165,7 @@ export class QuotationService {
     userId: string,
     page: number = 1,
     limit: number = 20,
+    status?: string,
   ): Promise<{
     data: Quotation[];
     total: number;
@@ -177,6 +178,11 @@ export class QuotationService {
       tenantId,
       deletedAt: null,
     };
+
+    // Filter by status if provided
+    if (status) {
+      where.status = status as any;
+    }
 
     // Vendors can only see their own quotations
     if (role === UserRoleEnum.VENDOR) {
