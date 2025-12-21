@@ -15,11 +15,12 @@ import {
 
 export interface CreateQuotationDto {
   quotationNumber?: string;
-  tenderId?: string;
-  vendorId: string;
+  rfqId?: string; // P2P Workflow - Link to RFQ
+  tenderId?: string; // Legacy: Keep for backward compatibility
+  vendorId?: string; // Optional - auto-detect from user if not provided
   amount: number;
   currencyId?: string;
-  validUntil?: Date;
+  validUntil?: Date | string;
   items: any;
   notes?: string;
   terms?: any;
@@ -42,7 +43,7 @@ export class QuotationService {
     private prisma: PrismaService,
     private audit: AuditService,
     private events: EventService,
-  ) {}
+  ) { }
 
   async create(
     createQuotationDto: CreateQuotationDto,
@@ -56,19 +57,59 @@ export class QuotationService {
       throw new BadRequestException('User not found');
     }
 
+    // Auto-detect vendorId from user's email if not provided
+    let vendorId = createQuotationDto.vendorId;
+    if (!vendorId) {
+      // Look up vendor by user's email matching vendor contactEmail
+      const vendor = await this.prisma.vendor.findFirst({
+        where: {
+          tenantId: user.tenantId,
+          contactEmail: user.email,
+        },
+      });
+      if (vendor) {
+        vendorId = vendor.id;
+      }
+    }
+    if (!vendorId) {
+      throw new BadRequestException('Vendor ID is required. User email must be associated with a vendor contact email.');
+    }
+
+    // Validate RFQ if provided
+    if (createQuotationDto.rfqId) {
+      const rfq = await this.prisma.rFQ.findUnique({
+        where: { id: createQuotationDto.rfqId },
+      });
+      if (!rfq) {
+        throw new BadRequestException('RFQ not found');
+      }
+      if (rfq.status !== 'PUBLISHED') {
+        throw new BadRequestException('RFQ is not open for quotations');
+      }
+    }
+
     const quotationNumber =
       createQuotationDto.quotationNumber ||
       (await this.generateQuotationNumber());
+
+    // Parse validUntil if it's a string
+    let validUntil: Date | undefined;
+    if (createQuotationDto.validUntil) {
+      validUntil = typeof createQuotationDto.validUntil === 'string'
+        ? new Date(createQuotationDto.validUntil)
+        : createQuotationDto.validUntil;
+    }
 
     const quotation = await this.prisma.quotation.create({
       data: {
         tenantId: user.tenantId,
         quotationNumber,
+        rfqId: createQuotationDto.rfqId,
         tenderId: createQuotationDto.tenderId,
-        vendorId: createQuotationDto.vendorId,
+        vendorId,
         amount: createQuotationDto.amount,
         currencyId: createQuotationDto.currencyId,
-        validUntil: createQuotationDto.validUntil,
+        validUntil,
         items: createQuotationDto.items,
         notes: createQuotationDto.notes,
         terms: createQuotationDto.terms,
@@ -76,6 +117,7 @@ export class QuotationService {
       },
       include: {
         vendor: true,
+        rfq: true,
         tender: true,
         currency: true,
       },
