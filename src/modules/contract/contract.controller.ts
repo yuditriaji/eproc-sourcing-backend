@@ -35,7 +35,7 @@ import {
 @Controller(":tenant/contracts")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ContractController {
-  constructor(private readonly contractService: ContractService) {}
+  constructor(private readonly contractService: ContractService) { }
 
   @Post()
   @Roles(UserRoleEnum.ADMIN, UserRoleEnum.BUYER, UserRoleEnum.MANAGER)
@@ -83,6 +83,7 @@ export class ContractController {
     UserRoleEnum.MANAGER,
     UserRoleEnum.FINANCE,
     UserRoleEnum.APPROVER,
+    UserRoleEnum.VENDOR,
   )
   @ApiOperation({
     summary: "List contracts with pagination and optional filters",
@@ -107,11 +108,18 @@ export class ContractController {
           ? ownerId
           : req.user.id;
 
+      // For VENDOR users, find their associated vendor and filter by ContractVendor
+      let vendorId: string | undefined;
+      if (req.user.role === UserRoleEnum.VENDOR) {
+        vendorId = await this.contractService.findVendorIdForUser(req.user.id, req.user.email);
+      }
+
       const result = await this.contractService.findAll(
         page,
         limit,
         status,
-        actualOwnerId,
+        req.user.role === UserRoleEnum.VENDOR ? undefined : actualOwnerId,
+        vendorId,
       );
 
       return {
@@ -207,6 +215,7 @@ export class ContractController {
     UserRoleEnum.MANAGER,
     UserRoleEnum.FINANCE,
     UserRoleEnum.APPROVER,
+    UserRoleEnum.VENDOR,
   )
   @ApiOperation({ summary: "Get contract by ID" })
   @ApiResponseDoc({
@@ -364,19 +373,19 @@ export class ContractController {
         data: contract,
         meta: approvalDto.approved
           ? {
-              nextSteps: [
-                "Contract is now IN_PROGRESS",
-                "You can now create Purchase Requisitions",
-                "Initiate procurement workflows",
-              ],
-            }
+            nextSteps: [
+              "Contract is now IN_PROGRESS",
+              "You can now create Purchase Requisitions",
+              "Initiate procurement workflows",
+            ],
+          }
           : {
-              nextSteps: [
-                "Contract remains in DRAFT status",
-                "Requester can revise and resubmit",
-                "Address rejection comments",
-              ],
-            },
+            nextSteps: [
+              "Contract remains in DRAFT status",
+              "Requester can revise and resubmit",
+              "Address rejection comments",
+            ],
+          },
       };
     } catch (error) {
       return {

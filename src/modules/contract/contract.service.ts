@@ -137,12 +137,21 @@ export class ContractService {
     limit = 10,
     status?: ContractStatus,
     ownerId?: string,
+    vendorId?: string,
   ): Promise<{ contracts: Contract[]; total: number }> {
     const skip = (page - 1) * limit;
     const where: Prisma.ContractWhereInput = {
       deletedAt: null,
       ...(status && { status }),
       ...(ownerId && { ownerId }),
+      // Filter by vendor - contracts that have this vendor in ContractVendor
+      ...(vendorId && {
+        vendors: {
+          some: {
+            vendorId: vendorId,
+          },
+        },
+      }),
     };
 
     const [contracts, total] = await Promise.all([
@@ -172,6 +181,39 @@ export class ContractService {
     ]);
 
     return { contracts, total };
+  }
+
+  // Find vendor ID for a user (used for VENDOR role filtering)
+  async findVendorIdForUser(userId: string, userEmail: string): Promise<string | undefined> {
+    // Try 1: Find vendor by email match
+    let vendor = await this.prisma.vendor.findFirst({
+      where: { contactEmail: userEmail },
+    });
+
+    // Try 2: Look up vendor by username (email prefix) in vendor name
+    if (!vendor) {
+      const emailParts = userEmail.split('@');
+      const username = emailParts[0];
+      const domain = emailParts[1]?.split('.')[0];
+
+      vendor = await this.prisma.vendor.findFirst({
+        where: {
+          name: { contains: username, mode: 'insensitive' },
+          status: 'ACTIVE',
+        },
+      });
+
+      if (!vendor && domain) {
+        vendor = await this.prisma.vendor.findFirst({
+          where: {
+            name: { contains: domain, mode: 'insensitive' },
+            status: 'ACTIVE',
+          },
+        });
+      }
+    }
+
+    return vendor?.id;
   }
 
   async findOne(id: string): Promise<Contract> {
