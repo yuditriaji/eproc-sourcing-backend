@@ -46,8 +46,8 @@ import { CaslAbilityGuard } from "../../common/guards/casl-ability.guard";
 import { Action } from "../auth/abilities/ability.factory";
 
 // Import subject classes for CASL
-class Tender {}
-class Bid {}
+class Tender { }
+class Bid { }
 
 export class CreateTenderDto implements ICreateTenderDto {
   @IsString()
@@ -140,6 +140,23 @@ export class GetTendersQuery {
   department?: string;
 
   @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value))
+  @IsNumber()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value))
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  pageSize?: number = 20;
+
+  @IsOptional()
   @Transform(({ value }) => parseInt(value))
   @IsNumber()
   @Min(1)
@@ -159,7 +176,7 @@ export class GetTendersQuery {
 @UseGuards(AuthGuard("jwt"))
 @UseInterceptors(ClassSerializerInterceptor)
 export class TenderController {
-  constructor(private readonly tenderService: TenderService) {}
+  constructor(private readonly tenderService: TenderService) { }
 
   @Post()
   @UseGuards(RolesGuard)

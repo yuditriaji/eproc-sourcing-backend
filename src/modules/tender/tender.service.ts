@@ -44,7 +44,7 @@ export class TenderService {
     private auditService: AuditService,
     private eventService: EventService,
     private abilityFactory: AbilityFactory,
-  ) {}
+  ) { }
 
   async createTender(
     createTenderDto: CreateTenderDto,
@@ -57,7 +57,7 @@ export class TenderService {
     const user = await this.prismaService.user.findUnique({
       where: { id: userId },
     });
-    
+
     if (!user) {
       throw new BadRequestException("User not found");
     }
@@ -166,6 +166,9 @@ export class TenderService {
       department?: string;
       limit?: number;
       offset?: number;
+      page?: number;
+      pageSize?: number;
+      search?: string;
     },
   ) {
     const where: any = {};
@@ -173,7 +176,9 @@ export class TenderService {
     // Apply role-based filtering
     switch (userRole) {
       case "ADMIN":
-        // Admin can see all tenders
+      case "MANAGER":
+      case "BUYER":
+        // Admin/Manager/Buyer can see all tenders
         break;
       case "USER":
         // Users can see all tenders but with department context
@@ -196,23 +201,37 @@ export class TenderService {
     if (filters?.status) where.status = filters.status;
     if (filters?.category) where.category = filters.category;
     if (filters?.department) where.department = filters.department;
+    if (filters?.search) {
+      where.OR = [
+        { title: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+        { tenderNumber: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
 
-    const tenders = await this.prismaService.tender.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: filters?.limit || 20,
-      skip: filters?.offset || 0,
-      include: {
-        creator: {
-          select: {
-            username: true,
-            email: true,
-            role: true,
+    // Support both page/pageSize and limit/offset
+    const page = filters?.page || 1;
+    const pageSize = filters?.pageSize || filters?.limit || 20;
+    const skip = filters?.offset ?? (page - 1) * pageSize;
+    const take = pageSize;
+
+    const [tenders, total] = await Promise.all([
+      this.prismaService.tender.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take,
+        skip,
+        include: {
+          creator: {
+            select: {
+              username: true,
+              email: true,
+              role: true,
+            },
           },
-        },
-        bids:
-          userRole !== "VENDOR"
-            ? {
+          bids:
+            userRole !== "VENDOR"
+              ? {
                 select: {
                   id: true,
                   status: true,
@@ -225,11 +244,22 @@ export class TenderService {
                   },
                 },
               }
-            : false,
-      },
-    });
+              : false,
+        },
+      }),
+      this.prismaService.tender.count({ where }),
+    ]);
 
-    return tenders;
+    return {
+      success: true,
+      data: tenders,
+      meta: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
   }
 
   async getTenderById(tenderId: string, userId: string, userRole: string) {
@@ -246,26 +276,26 @@ export class TenderService {
         bids:
           userRole !== "VENDOR"
             ? {
-                include: {
-                  vendor: {
-                    select: {
-                      name: true,
-                      contactEmail: true,
-                    },
-                  },
-                },
-              }
-            : {
-                where: { vendorId: userId }, // Vendors only see their own bids
-                include: {
-                  vendor: {
-                    select: {
-                      name: true,
-                      contactEmail: true,
-                    },
+              include: {
+                vendor: {
+                  select: {
+                    name: true,
+                    contactEmail: true,
                   },
                 },
               },
+            }
+            : {
+              where: { vendorId: userId }, // Vendors only see their own bids
+              include: {
+                vendor: {
+                  select: {
+                    name: true,
+                    contactEmail: true,
+                  },
+                },
+              },
+            },
       },
     });
 
