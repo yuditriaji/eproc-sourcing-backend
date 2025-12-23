@@ -23,7 +23,7 @@ import {
 @Controller(":tenant/transactions")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class TransactionsController {
-  constructor(private readonly transactionsService: TransactionsService) {}
+  constructor(private readonly transactionsService: TransactionsService) { }
 
   @Get("statistics/purchase-orders")
   @Roles(UserRoleEnum.ADMIN, UserRoleEnum.MANAGER, UserRoleEnum.FINANCE, UserRoleEnum.BUYER)
@@ -101,7 +101,10 @@ export class TransactionsController {
       year: year && year.trim() ? parseInt(year) : new Date().getFullYear(),
       month: month && month.trim() ? parseInt(month) : undefined,
       status: status || undefined,
-      createdBy: req.user.role === UserRoleEnum.ADMIN ? undefined : req.user.id,
+      // ADMIN and MANAGER can see all tenders stats
+      createdBy: (req.user.role === UserRoleEnum.ADMIN || req.user.role === UserRoleEnum.MANAGER)
+        ? undefined
+        : req.user.id,
     };
 
     return this.transactionsService.getTenderStatistics(filters);

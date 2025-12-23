@@ -13,7 +13,7 @@ interface StatisticsFilters {
 
 @Injectable()
 export class TransactionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getPurchaseOrderStatistics(filters: StatisticsFilters) {
     const { period, year, month, status, createdBy } = filters;
@@ -138,12 +138,22 @@ export class TransactionsService {
       ...(createdBy && { creatorId: createdBy }),
     };
 
-    const summary = await this.getTenderSummary(where);
+    // For summary stats, get all-time totals (not filtered by date)
+    const allTimeWhere = {
+      deletedAt: null,
+      ...(status && { status: status as TenderStatus }),
+      ...(createdBy && { creatorId: createdBy }),
+    };
+
+    const summary = await this.getTenderSummary(allTimeWhere);
 
     return {
-      summary,
-      period,
-      filters: { year, month, status, createdBy },
+      success: true,
+      data: {
+        summary,
+        period,
+        filters: { year, month, status, createdBy },
+      },
     };
   }
 
@@ -323,10 +333,10 @@ export class TransactionsService {
   }
 
   private async getContractSummary(where: any) {
-    const totalContracts = await this.prisma.contract.count({ 
-      where: { ...where, deletedAt: null } 
+    const totalContracts = await this.prisma.contract.count({
+      where: { ...where, deletedAt: null }
     });
-    
+
     return { totalContracts };
   }
 
