@@ -303,6 +303,7 @@ export class BidService {
         include: {
           tender: {
             select: {
+              id: true,
               title: true,
               status: true,
               closingDate: true,
