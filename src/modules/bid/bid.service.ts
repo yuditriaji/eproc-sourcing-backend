@@ -43,6 +43,7 @@ export class BidService {
     ipAddress: string,
     userAgent: string,
     userEmail?: string,
+    tenantId?: string,
   ) {
     // Only vendors can create bids
     if (userRole !== "VENDOR") {
@@ -137,6 +138,7 @@ export class BidService {
 
     const bid = await this.prismaService.bid.create({
       data: {
+        tenantId: tenantId || 'default',
         tenderId: createBidDto.tenderId,
         vendorId: vendorId,
         encryptedData: encryptedData,

@@ -133,7 +133,11 @@ export class BidController {
   })
   @ApiResponse({ status: 403, description: "Only vendors can create bids" })
   @ApiResponse({ status: 404, description: "Tender not found" })
-  async createBid(@Body() createBidDto: CreateBidDto, @Req() req: Request) {
+  async createBid(
+    @Param("tenant") tenantId: string,
+    @Body() createBidDto: CreateBidDto,
+    @Req() req: Request
+  ) {
     const user = req.user as any;
     const ipAddress = req.ip || req.connection.remoteAddress || "unknown";
     const userAgent = req.get("User-Agent") || "unknown";
@@ -145,6 +149,7 @@ export class BidController {
       ipAddress,
       userAgent,
       user.email,
+      tenantId,
     );
   }
 
