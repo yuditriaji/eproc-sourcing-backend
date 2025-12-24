@@ -370,22 +370,36 @@ export class BidService {
     if (userRole === "ADMIN" || userRole === "MANAGER" || userRole === "BUYER") {
       canAccess = true;
     } else if (userRole === "VENDOR") {
-      // Compare by email for vendors (vendorId is Vendor table ID, not User ID)
-      if (userEmail && bid.vendor?.contactEmail) {
-        // Strategy 1: Exact email match
-        if (bid.vendor.contactEmail.toLowerCase() === userEmail.toLowerCase()) {
-          canAccess = true;
-        }
-        // Strategy 2: Email prefix match
-        if (!canAccess && userEmail.includes('@')) {
+      // Use same vendor lookup strategy as getBids
+      if (userEmail) {
+        // Strategy 1: Exact email match (case-insensitive)
+        let vendor = await this.prismaService.vendor.findFirst({
+          where: { contactEmail: { equals: userEmail, mode: 'insensitive' } },
+          select: { id: true },
+        });
+
+        // Strategy 2: Try email prefix match
+        if (!vendor && userEmail.includes('@')) {
           const emailPrefix = userEmail.split('@')[0].toLowerCase();
-          const vendorPrefix = bid.vendor.contactEmail.split('@')[0].toLowerCase();
-          if (emailPrefix === vendorPrefix) {
-            canAccess = true;
-          }
+          vendor = await this.prismaService.vendor.findFirst({
+            where: {
+              OR: [
+                { contactEmail: { contains: emailPrefix, mode: 'insensitive' } },
+                { name: { contains: emailPrefix, mode: 'insensitive' } },
+              ],
+            },
+            select: { id: true },
+          });
+        }
+
+        if (vendor) {
+          // Check if the bid belongs to this vendor
+          canAccess = bid.vendorId === vendor.id;
+          console.log(`getBidById: Matched vendor ${vendor.id}, bid.vendorId=${bid.vendorId}, canAccess=${canAccess}`);
         }
       }
-      // Fallback: direct ID comparison
+
+      // Final fallback: direct ID comparison (for backward compatibility)
       if (!canAccess) {
         canAccess = bid.vendorId === userId;
       }
