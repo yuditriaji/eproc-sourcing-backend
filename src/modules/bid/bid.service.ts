@@ -333,20 +333,23 @@ export class BidService {
     };
   }
 
-  async getBidById(bidId: string, userId: string, userRole: string) {
+  async getBidById(bidId: string, userId: string, userRole: string, userEmail?: string) {
     const bid = await this.prismaService.bid.findUnique({
       where: { id: bidId },
       include: {
         tender: {
           select: {
+            id: true,
             title: true,
             status: true,
             closingDate: true,
             creatorId: true,
+            tenderNumber: true,
           },
         },
         vendor: {
           select: {
+            id: true,
             name: true,
             contactEmail: true,
           },
@@ -359,10 +362,20 @@ export class BidService {
     }
 
     // Check access permissions
-    const canAccess =
-      userRole === "ADMIN" ||
-      (userRole === "VENDOR" && bid.vendorId === userId) ||
-      (userRole === "USER" && bid.tender.creatorId === userId);
+    let canAccess = false;
+
+    if (userRole === "ADMIN" || userRole === "MANAGER" || userRole === "BUYER") {
+      canAccess = true;
+    } else if (userRole === "VENDOR") {
+      // Compare by email for vendors (vendorId is Vendor table ID, not User ID)
+      if (userEmail && bid.vendor?.contactEmail) {
+        canAccess = bid.vendor.contactEmail.toLowerCase() === userEmail.toLowerCase();
+      } else {
+        canAccess = bid.vendorId === userId; // Fallback
+      }
+    } else if (userRole === "USER") {
+      canAccess = bid.tender.creatorId === userId;
+    }
 
     if (!canAccess) {
       throw new ForbiddenException("Access denied to this bid");
@@ -379,7 +392,10 @@ export class BidService {
       }
     }
 
-    return bid;
+    return {
+      success: true,
+      data: bid,
+    };
   }
 
   async updateBid(

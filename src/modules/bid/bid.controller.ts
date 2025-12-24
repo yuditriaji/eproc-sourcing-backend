@@ -224,7 +224,7 @@ export class BidController {
   async getBidById(@Param("id") id: string, @Req() req: Request) {
     const user = req.user as any;
 
-    return this.bidService.getBidById(id, user.userId, user.role);
+    return this.bidService.getBidById(id, user.userId, user.role, user.email);
   }
 
   @Put(":id")
