@@ -361,6 +361,9 @@ export class BidService {
       throw new NotFoundException("Bid not found");
     }
 
+    console.log(`getBidById: bidId=${bidId}, userId=${userId}, userRole=${userRole}, userEmail=${userEmail}`);
+    console.log(`getBidById: bid.vendorId=${bid.vendorId}, vendor.contactEmail=${bid.vendor?.contactEmail}`);
+
     // Check access permissions
     let canAccess = false;
 
@@ -369,15 +372,30 @@ export class BidService {
     } else if (userRole === "VENDOR") {
       // Compare by email for vendors (vendorId is Vendor table ID, not User ID)
       if (userEmail && bid.vendor?.contactEmail) {
-        canAccess = bid.vendor.contactEmail.toLowerCase() === userEmail.toLowerCase();
-      } else {
-        canAccess = bid.vendorId === userId; // Fallback
+        // Strategy 1: Exact email match
+        if (bid.vendor.contactEmail.toLowerCase() === userEmail.toLowerCase()) {
+          canAccess = true;
+        }
+        // Strategy 2: Email prefix match
+        if (!canAccess && userEmail.includes('@')) {
+          const emailPrefix = userEmail.split('@')[0].toLowerCase();
+          const vendorPrefix = bid.vendor.contactEmail.split('@')[0].toLowerCase();
+          if (emailPrefix === vendorPrefix) {
+            canAccess = true;
+          }
+        }
       }
+      // Fallback: direct ID comparison
+      if (!canAccess) {
+        canAccess = bid.vendorId === userId;
+      }
+      console.log(`getBidById: VENDOR access check result: ${canAccess}`);
     } else if (userRole === "USER") {
       canAccess = bid.tender.creatorId === userId;
     }
 
     if (!canAccess) {
+      console.log(`getBidById: Access denied for user ${userId} to bid ${bidId}`);
       throw new ForbiddenException("Access denied to this bid");
     }
 
