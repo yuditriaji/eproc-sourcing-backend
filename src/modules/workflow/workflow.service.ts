@@ -1608,11 +1608,12 @@ export class WorkflowService {
   }
 
   private async getTenderWorkflowStatus(tenderId: string) {
-    const tender = await this.tenderService.getTenderById(
+    const tenderResponse = await this.tenderService.getTenderById(
       tenderId,
       "system",
       "ADMIN",
     );
+    const tender = tenderResponse.data;
     const bids = await this.prisma.bid.findMany({
       where: { tenderId },
       include: {

@@ -270,7 +270,7 @@ export class TenderController {
   async getTenderById(@Param("id") id: string, @Req() req: Request) {
     const user = req.user as any;
 
-    return this.tenderService.getTenderById(id, user.id, user.role);
+    return this.tenderService.getTenderById(id, user.id, user.role, user.email);
   }
 
   @Put(":id")

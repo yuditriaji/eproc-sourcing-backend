@@ -262,7 +262,17 @@ export class TenderService {
     };
   }
 
-  async getTenderById(tenderId: string, userId: string, userRole: string) {
+  async getTenderById(tenderId: string, userId: string, userRole: string, userEmail?: string) {
+    // For VENDOR users, we need to find their associated vendor ID
+    let vendorId: string | undefined;
+    if (userRole === "VENDOR" && userEmail) {
+      const vendor = await this.prismaService.vendor.findFirst({
+        where: { contactEmail: userEmail },
+        select: { id: true },
+      });
+      vendorId = vendor?.id;
+    }
+
     const tender = await this.prismaService.tender.findFirst({
       where: { id: tenderId },
       include: {
@@ -285,17 +295,19 @@ export class TenderService {
                 },
               },
             }
-            : {
-              where: { vendorId: userId }, // Vendors only see their own bids
-              include: {
-                vendor: {
-                  select: {
-                    name: true,
-                    contactEmail: true,
+            : vendorId
+              ? {
+                where: { vendorId },
+                include: {
+                  vendor: {
+                    select: {
+                      name: true,
+                      contactEmail: true,
+                    },
                   },
                 },
-              },
-            },
+              }
+              : false,
       },
     });
 
@@ -308,7 +320,10 @@ export class TenderService {
       throw new ForbiddenException("Cannot view unpublished tender");
     }
 
-    return tender;
+    return {
+      success: true,
+      data: tender,
+    };
   }
 
   async updateTender(
