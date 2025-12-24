@@ -83,6 +83,21 @@ export class GetBidsQuery {
   status?: string;
 
   @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value))
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value))
+  @Min(1)
+  @Max(100)
+  pageSize?: number = 20;
+
+  @IsOptional()
   @Transform(({ value }) => parseInt(value))
   @Min(1)
   @Max(100)
@@ -184,9 +199,12 @@ export class BidController {
   async getBids(@Query() query: GetBidsQuery, @Req() req: Request) {
     const user = req.user as any;
 
-    return this.bidService.getBids(user.userId, user.role, {
+    return this.bidService.getBids(user.userId, user.role, user.email, {
       tenderId: query.tenderId,
       status: query.status,
+      search: query.search,
+      page: query.page,
+      pageSize: query.pageSize,
       limit: query.limit,
       offset: query.offset,
     });

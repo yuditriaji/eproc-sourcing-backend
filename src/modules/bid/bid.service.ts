@@ -195,11 +195,15 @@ export class BidService {
   async getBids(
     userId: string,
     userRole: string,
+    userEmail?: string,
     filters?: {
       tenderId?: string;
       status?: string;
+      search?: string;
       limit?: number;
       offset?: number;
+      page?: number;
+      pageSize?: number;
     },
   ) {
     const where: any = {};
@@ -207,7 +211,9 @@ export class BidService {
     // Apply role-based filtering
     switch (userRole) {
       case "ADMIN":
-        // Admin can see all bids
+      case "MANAGER":
+      case "BUYER":
+        // Admin/Manager/Buyer can see all bids
         break;
       case "USER":
         // Users can see bids for their tenders
@@ -218,8 +224,26 @@ export class BidService {
         where.tenderId = { in: userTenders.map((t) => t.id) };
         break;
       case "VENDOR":
-        // Vendors can only see their own bids
-        where.vendorId = userId;
+        // Vendors can only see their own bids - lookup by email
+        if (userEmail) {
+          const vendor = await this.prismaService.vendor.findFirst({
+            where: { contactEmail: { equals: userEmail, mode: 'insensitive' } },
+            select: { id: true },
+          });
+          if (vendor) {
+            where.vendorId = vendor.id;
+          } else {
+            // No vendor found, return empty result
+            return {
+              success: true,
+              data: [],
+              meta: { total: 0, page: 1, pageSize: filters?.pageSize || 20, totalPages: 0 },
+            };
+          }
+        } else {
+          // Fallback to userId (for backward compatibility)
+          where.vendorId = userId;
+        }
         break;
       default:
         throw new ForbiddenException("Invalid user role");
@@ -228,46 +252,54 @@ export class BidService {
     // Apply additional filters
     if (filters?.tenderId) where.tenderId = filters.tenderId;
     if (filters?.status) where.status = filters.status;
+    if (filters?.search) {
+      where.tender = {
+        title: { contains: filters.search, mode: 'insensitive' },
+      };
+    }
 
-    const bids = await this.prismaService.bid.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: filters?.limit || 20,
-      skip: filters?.offset || 0,
-      include: {
-        tender: {
-          select: {
-            title: true,
-            status: true,
-            closingDate: true,
+    // Support both page/pageSize and limit/offset
+    const page = filters?.page || 1;
+    const pageSize = filters?.pageSize || filters?.limit || 20;
+    const skip = filters?.offset ?? (page - 1) * pageSize;
+    const take = pageSize;
+
+    const [bids, total] = await Promise.all([
+      this.prismaService.bid.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take,
+        skip,
+        include: {
+          tender: {
+            select: {
+              title: true,
+              status: true,
+              closingDate: true,
+              tenderNumber: true,
+            },
+          },
+          vendor: {
+            select: {
+              name: true,
+              contactEmail: true,
+            },
           },
         },
-        vendor: {
-          select: {
-            name: true,
-            contactEmail: true,
-          },
-        },
+      }),
+      this.prismaService.bid.count({ where }),
+    ]);
+
+    return {
+      success: true,
+      data: bids,
+      meta: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
       },
-    });
-
-    // Decrypt sensitive data if user has access
-    return bids.map((bid) => {
-      if (userRole === "VENDOR" && bid.vendorId !== userId) {
-        // Vendors cannot see other vendors' bid details
-        delete bid.encryptedData;
-      } else if (bid.encryptedData) {
-        try {
-          (bid as any).decryptedData = this.decryptWithTenantDek(
-            bid.encryptedData,
-          );
-        } catch (error) {
-          // If decryption fails, remove encrypted data
-          delete (bid as any).encryptedData;
-        }
-      }
-      return bid;
-    });
+    };
   }
 
   async getBidById(bidId: string, userId: string, userRole: string) {
