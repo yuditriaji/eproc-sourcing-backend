@@ -224,16 +224,45 @@ export class BidService {
         where.tenderId = { in: userTenders.map((t) => t.id) };
         break;
       case "VENDOR":
-        // Vendors can only see their own bids - lookup by email
+        // Vendors can only see their own bids - lookup by email with multiple strategies
         if (userEmail) {
-          const vendor = await this.prismaService.vendor.findFirst({
+          // Strategy 1: Exact email match (case-insensitive)
+          let vendor = await this.prismaService.vendor.findFirst({
             where: { contactEmail: { equals: userEmail, mode: 'insensitive' } },
             select: { id: true },
           });
+
+          // Strategy 2: Try email prefix match
+          if (!vendor && userEmail.includes('@')) {
+            const emailPrefix = userEmail.split('@')[0].toLowerCase();
+            vendor = await this.prismaService.vendor.findFirst({
+              where: {
+                OR: [
+                  { contactEmail: { contains: emailPrefix, mode: 'insensitive' } },
+                  { name: { contains: emailPrefix, mode: 'insensitive' } },
+                ],
+              },
+              select: { id: true },
+            });
+          }
+
+          // Strategy 3: Try domain match for company emails
+          if (!vendor && userEmail.includes('@')) {
+            const domain = userEmail.split('@')[1]?.toLowerCase();
+            if (domain && !['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'].includes(domain)) {
+              vendor = await this.prismaService.vendor.findFirst({
+                where: { contactEmail: { contains: domain, mode: 'insensitive' } },
+                select: { id: true },
+              });
+            }
+          }
+
           if (vendor) {
             where.vendorId = vendor.id;
+            console.log(`getBids: Found vendor ${vendor.id} for email ${userEmail}`);
           } else {
-            // No vendor found, return empty result
+            console.log(`getBids: No vendor found for email ${userEmail}`);
+            // Return empty result
             return {
               success: true,
               data: [],
@@ -242,6 +271,7 @@ export class BidService {
           }
         } else {
           // Fallback to userId (for backward compatibility)
+          console.log(`getBids: No email provided, using userId ${userId}`);
           where.vendorId = userId;
         }
         break;
