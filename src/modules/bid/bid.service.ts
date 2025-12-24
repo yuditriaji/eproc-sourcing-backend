@@ -49,18 +49,53 @@ export class BidService {
       throw new ForbiddenException("Only vendors can create bids");
     }
 
-    // Find vendor by user email
+    // Find vendor by user email with multiple strategies
     let vendorId: string | undefined;
+
     if (userEmail) {
-      const vendor = await this.prismaService.vendor.findFirst({
-        where: { contactEmail: userEmail },
+      // Strategy 1: Exact email match (case-insensitive)
+      let vendor = await this.prismaService.vendor.findFirst({
+        where: {
+          contactEmail: { equals: userEmail, mode: 'insensitive' },
+          status: 'ACTIVE',
+        },
         select: { id: true },
       });
+
+      // Strategy 2: Try email prefix match (user part before @)
+      if (!vendor && userEmail.includes('@')) {
+        const emailPrefix = userEmail.split('@')[0].toLowerCase();
+        vendor = await this.prismaService.vendor.findFirst({
+          where: {
+            OR: [
+              { contactEmail: { contains: emailPrefix, mode: 'insensitive' } },
+              { name: { contains: emailPrefix, mode: 'insensitive' } },
+            ],
+            status: 'ACTIVE',
+          },
+          select: { id: true },
+        });
+      }
+
+      // Strategy 3: Try domain match for company vendors
+      if (!vendor && userEmail.includes('@')) {
+        const domain = userEmail.split('@')[1]?.toLowerCase();
+        if (domain && !['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'].includes(domain)) {
+          vendor = await this.prismaService.vendor.findFirst({
+            where: {
+              contactEmail: { contains: domain, mode: 'insensitive' },
+              status: 'ACTIVE',
+            },
+            select: { id: true },
+          });
+        }
+      }
+
       vendorId = vendor?.id;
     }
 
     if (!vendorId) {
-      throw new ForbiddenException("No vendor profile found for this user");
+      throw new ForbiddenException("No vendor profile found for this user. Please ensure your vendor profile is set up correctly.");
     }
 
     // Check if tender exists and is published
