@@ -34,7 +34,7 @@ export class BidService {
     private eventService: EventService,
     private abilityFactory: AbilityFactory,
     private tenantKms: TenantKmsService,
-  ) {}
+  ) { }
 
   async createBid(
     createBidDto: CreateBidDto,
@@ -42,10 +42,25 @@ export class BidService {
     userRole: string,
     ipAddress: string,
     userAgent: string,
+    userEmail?: string,
   ) {
     // Only vendors can create bids
     if (userRole !== "VENDOR") {
       throw new ForbiddenException("Only vendors can create bids");
+    }
+
+    // Find vendor by user email
+    let vendorId: string | undefined;
+    if (userEmail) {
+      const vendor = await this.prismaService.vendor.findFirst({
+        where: { contactEmail: userEmail },
+        select: { id: true },
+      });
+      vendorId = vendor?.id;
+    }
+
+    if (!vendorId) {
+      throw new ForbiddenException("No vendor profile found for this user");
     }
 
     // Check if tender exists and is published
@@ -70,7 +85,7 @@ export class BidService {
     const existingBid = await this.prismaService.bid.findFirst({
       where: {
         tenderId: createBidDto.tenderId,
-        vendorId: userId,
+        vendorId: vendorId,
       },
     });
 
@@ -88,7 +103,7 @@ export class BidService {
     const bid = await this.prismaService.bid.create({
       data: {
         tenderId: createBidDto.tenderId,
-        vendorId: userId,
+        vendorId: vendorId,
         encryptedData: ciphertext,
         keyVersion,
         status: "DRAFT",
@@ -124,10 +139,13 @@ export class BidService {
     await this.eventService.emit("bid.created", {
       bidId: bid.id,
       tenderId: createBidDto.tenderId,
-      vendorId: userId,
+      vendorId: vendorId,
     });
 
-    return bid;
+    return {
+      success: true,
+      data: bid,
+    };
   }
 
   async getBids(

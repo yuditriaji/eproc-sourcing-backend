@@ -100,7 +100,7 @@ export class GetBidsQuery {
 @UseGuards(AuthGuard("jwt"))
 @UseInterceptors(ClassSerializerInterceptor)
 export class BidController {
-  constructor(private readonly bidService: BidService) {}
+  constructor(private readonly bidService: BidService) { }
 
   @Post()
   @UseGuards(RolesGuard)
@@ -144,6 +144,7 @@ export class BidController {
       user.role,
       ipAddress,
       userAgent,
+      user.email,
     );
   }
 
