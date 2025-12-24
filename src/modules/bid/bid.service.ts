@@ -130,10 +130,17 @@ export class BidService {
     }
 
     try {
+      // Use tender's tenantId as it's guaranteed to be valid (created with valid FK)
+      const validTenantId = tender.tenantId;
+
+      if (!validTenantId) {
+        throw new BadRequestException("Tender does not have a valid tenant");
+      }
+
       // Store proposal data directly (skip encryption to avoid failures)
       const bid = await this.prismaService.bid.create({
         data: {
-          tenantId: tenantId || tender.tenantId || 'default',
+          tenantId: validTenantId,
           tenderId: createBidDto.tenderId,
           vendorId: vendorId,
           technicalProposal: createBidDto.technicalProposal,
