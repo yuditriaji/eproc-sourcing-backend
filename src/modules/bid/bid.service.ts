@@ -128,8 +128,8 @@ export class BidService {
       throw new BadRequestException("Bid already exists for this tender");
     }
 
-    // Encrypt sensitive bid data
-    const { ciphertext, keyVersion } = await this.encryptWithTenantDek({
+    // Encrypt sensitive bid data using simple encryption (tenant KMS may not be set up)
+    const encryptedData = this.encryptSensitiveData({
       technicalProposal: createBidDto.technicalProposal,
       commercialProposal: createBidDto.commercialProposal,
       financialProposal: createBidDto.financialProposal,
@@ -139,8 +139,7 @@ export class BidService {
       data: {
         tenderId: createBidDto.tenderId,
         vendorId: vendorId,
-        encryptedData: ciphertext,
-        keyVersion,
+        encryptedData: encryptedData,
         status: "DRAFT",
       } as any,
       include: {
