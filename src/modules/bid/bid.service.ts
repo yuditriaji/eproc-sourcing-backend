@@ -528,18 +528,27 @@ export class BidService {
       throw new BadRequestException("Tender has closed");
     }
 
-    // Encrypt sensitive updated data
-    const encryptedData = this.encryptSensitiveData({
-      technicalProposal: updateBidDto.technicalProposal,
-      commercialProposal: updateBidDto.commercialProposal,
-      financialProposal: updateBidDto.financialProposal,
-    });
+    // Store proposal data directly (so frontend can read it)
+    // Also update bidAmount from financialProposal or commercialProposal
+    const bidAmount = updateBidDto.financialProposal?.totalAmount ||
+      updateBidDto.commercialProposal?.amount ||
+      existingBid.bidAmount;
 
     const updatedBid = await this.prismaService.bid.update({
       where: { id: bidId },
       data: {
-        encryptedData,
+        technicalProposal: updateBidDto.technicalProposal || existingBid.technicalProposal,
+        financialProposal: updateBidDto.financialProposal || existingBid.financialProposal,
+        bidAmount: bidAmount,
         updatedAt: new Date(),
+      },
+      include: {
+        tender: {
+          select: { id: true, title: true, status: true },
+        },
+        vendor: {
+          select: { id: true, name: true, contactEmail: true },
+        },
       },
     });
 
@@ -562,7 +571,10 @@ export class BidService {
       tenderId: existingBid.tenderId,
     });
 
-    return updatedBid;
+    return {
+      success: true,
+      data: updatedBid,
+    };
   }
 
   async submitBid(
