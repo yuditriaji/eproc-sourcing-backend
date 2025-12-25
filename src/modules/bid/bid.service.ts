@@ -721,6 +721,91 @@ export class BidService {
     }
   }
 
+  async scoreBid(
+    bidId: string,
+    scores: Record<string, number>,
+    comments: string | undefined,
+    userId: string,
+    userRole: string,
+    ipAddress: string,
+    userAgent: string,
+  ) {
+    const bid = await this.prismaService.bid.findUnique({
+      where: { id: bidId },
+      include: {
+        tender: true,
+        vendor: {
+          select: { id: true, name: true, contactEmail: true },
+        },
+      },
+    });
+
+    if (!bid) {
+      throw new NotFoundException("Bid not found");
+    }
+
+    // Only managers, buyers, and admins can score
+    if (!["MANAGER", "BUYER", "ADMIN"].includes(userRole)) {
+      throw new ForbiddenException("Only managers and buyers can score bids");
+    }
+
+    // Can only score submitted or under review bids
+    if (!["SUBMITTED", "UNDER_REVIEW"].includes(bid.status)) {
+      throw new BadRequestException("Can only score submitted or under review bids");
+    }
+
+    // Calculate total score
+    const totalScore = Object.values(scores).reduce((sum, score) => sum + (score || 0), 0);
+
+    const scoredBid = await this.prismaService.bid.update({
+      where: { id: bidId },
+      data: {
+        totalScore: totalScore,
+        technicalScore: scores.technical || scores.compliance || 0,
+        commercialScore: scores.financial || scores.experience || 0,
+        evaluationNotes: comments,
+        status: "EVALUATED",
+        evaluatedAt: new Date(),
+        evaluatedBy: userId,
+        updatedAt: new Date(),
+      },
+      include: {
+        tender: {
+          select: { id: true, title: true, status: true },
+        },
+        vendor: {
+          select: { id: true, name: true, contactEmail: true },
+        },
+      },
+    });
+
+    // Audit log
+    await this.auditService.log({
+      userId,
+      action: "bid_scored",
+      targetType: "Bid",
+      targetId: bidId,
+      oldValues: { status: bid.status, score: null },
+      newValues: { status: "EVALUATED", score: totalScore },
+      ipAddress,
+      userAgent,
+    });
+
+    // Emit event
+    await this.eventService.emit("bid.scored", {
+      bidId,
+      tenderId: bid.tenderId,
+      vendorId: bid.vendorId,
+      score: totalScore,
+      scoredBy: userId,
+    });
+
+    return {
+      success: true,
+      data: scoredBid,
+    };
+  }
+
   private async encryptWithTenantDek(
     obj: any,
   ): Promise<{ ciphertext: string; keyVersion: number }> {

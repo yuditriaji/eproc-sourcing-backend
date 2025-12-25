@@ -298,4 +298,38 @@ export class BidController {
       user.email,
     );
   }
+
+  @Post(":id/score")
+  @UseGuards(RolesGuard)
+  @Roles("MANAGER", "BUYER", "ADMIN")
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Score bid",
+    description: "Managers and buyers can score/evaluate submitted bids",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Bid scored successfully",
+  })
+  @ApiResponse({ status: 403, description: "Access denied" })
+  @ApiResponse({ status: 404, description: "Bid not found" })
+  async scoreBid(
+    @Param("id") id: string,
+    @Body() scoreDto: { scores: Record<string, number>; comments?: string },
+    @Req() req: Request,
+  ) {
+    const user = req.user as any;
+    const ipAddress = req.ip || req.connection.remoteAddress || "unknown";
+    const userAgent = req.get("User-Agent") || "unknown";
+
+    return this.bidService.scoreBid(
+      id,
+      scoreDto.scores,
+      scoreDto.comments,
+      user.userId,
+      user.role,
+      ipAddress,
+      userAgent,
+    );
+  }
 }
