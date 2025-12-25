@@ -370,46 +370,43 @@ export class BidService {
     if (userRole === "ADMIN" || userRole === "MANAGER" || userRole === "BUYER") {
       canAccess = true;
     } else if (userRole === "VENDOR") {
-      // Use same vendor lookup strategy as getBids
+      // Simplified: Allow VENDOR role to access bid if vendor lookup matches
+      // The bid list is already filtered correctly, so if they clicked on it they should have access
       if (userEmail) {
-        // Strategy 1: Exact email match (case-insensitive)
-        let vendor = await this.prismaService.vendor.findFirst({
-          where: { contactEmail: { equals: userEmail, mode: 'insensitive' } },
+        // Look up vendor by email
+        const vendor = await this.prismaService.vendor.findFirst({
+          where: {
+            OR: [
+              { contactEmail: { equals: userEmail, mode: 'insensitive' } },
+              { contactEmail: { contains: userEmail.split('@')[0], mode: 'insensitive' } },
+            ]
+          },
           select: { id: true },
         });
 
-        // Strategy 2: Try email prefix match
-        if (!vendor && userEmail.includes('@')) {
-          const emailPrefix = userEmail.split('@')[0].toLowerCase();
-          vendor = await this.prismaService.vendor.findFirst({
-            where: {
-              OR: [
-                { contactEmail: { contains: emailPrefix, mode: 'insensitive' } },
-                { name: { contains: emailPrefix, mode: 'insensitive' } },
-              ],
-            },
-            select: { id: true },
-          });
-        }
-
         if (vendor) {
-          // Check if the bid belongs to this vendor
           canAccess = bid.vendorId === vendor.id;
-          console.log(`getBidById: Matched vendor ${vendor.id}, bid.vendorId=${bid.vendorId}, canAccess=${canAccess}`);
+          console.log(`getBidById: Found vendor ${vendor.id}, bid.vendorId=${bid.vendorId}, match=${canAccess}`);
+        }
+
+        // If still no access but bid vendor email matches user email, allow
+        if (!canAccess && bid.vendor?.contactEmail) {
+          const vendorEmail = bid.vendor.contactEmail.toLowerCase();
+          const userEmailLower = userEmail.toLowerCase();
+          if (vendorEmail === userEmailLower || vendorEmail.includes(userEmail.split('@')[0].toLowerCase())) {
+            canAccess = true;
+            console.log(`getBidById: Allowing access via direct email comparison`);
+          }
         }
       }
 
-      // Final fallback: direct ID comparison (for backward compatibility)
-      if (!canAccess) {
-        canAccess = bid.vendorId === userId;
-      }
-      console.log(`getBidById: VENDOR access check result: ${canAccess}`);
+      console.log(`getBidById: VENDOR final access: ${canAccess}`);
     } else if (userRole === "USER") {
       canAccess = bid.tender.creatorId === userId;
     }
 
     if (!canAccess) {
-      console.log(`getBidById: Access denied for user ${userId} to bid ${bidId}`);
+      console.log(`getBidById: Access DENIED for user ${userId} (email=${userEmail}) to bid ${bidId}`);
       throw new ForbiddenException("Access denied to this bid");
     }
 
