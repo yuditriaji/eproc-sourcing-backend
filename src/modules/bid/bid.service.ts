@@ -467,11 +467,15 @@ export class BidService {
     userRole: string,
     ipAddress: string,
     userAgent: string,
+    userEmail?: string,
   ) {
     const existingBid = await this.prismaService.bid.findUnique({
       where: { id: bidId },
       include: {
         tender: true,
+        vendor: {
+          select: { id: true, contactEmail: true },
+        },
       },
     });
 
@@ -479,8 +483,35 @@ export class BidService {
       throw new NotFoundException("Bid not found");
     }
 
-    // Only vendors can update their own bids
-    if (userRole !== "VENDOR" || existingBid.vendorId !== userId) {
+    // Only vendors can update bids - use domain matching like getBidById
+    if (userRole !== "VENDOR") {
+      throw new ForbiddenException("Only vendors can update bids");
+    }
+
+    // Check vendor access using same domain matching strategy as getBidById
+    let canAccess = false;
+
+    if (userEmail && existingBid.vendor?.contactEmail) {
+      const userDomain = userEmail.split('@')[1]?.toLowerCase();
+      const bidDomain = existingBid.vendor.contactEmail.split('@')[1]?.toLowerCase();
+      const publicDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'mail.com'];
+
+      // Strategy 1: Exact email match
+      if (existingBid.vendor.contactEmail.toLowerCase() === userEmail.toLowerCase()) {
+        canAccess = true;
+      }
+      // Strategy 2: Domain match (vendor@sam.com can update info@sam.com bids)
+      else if (userDomain && bidDomain && userDomain === bidDomain && !publicDomains.includes(userDomain)) {
+        canAccess = true;
+      }
+    }
+
+    // Fallback: direct ID comparison
+    if (!canAccess) {
+      canAccess = existingBid.vendorId === userId;
+    }
+
+    if (!canAccess) {
       throw new ForbiddenException("Access denied");
     }
 
@@ -540,11 +571,15 @@ export class BidService {
     userRole: string,
     ipAddress: string,
     userAgent: string,
+    userEmail?: string,
   ) {
     const bid = await this.prismaService.bid.findUnique({
       where: { id: bidId },
       include: {
         tender: true,
+        vendor: {
+          select: { id: true, contactEmail: true },
+        },
       },
     });
 
@@ -552,8 +587,35 @@ export class BidService {
       throw new NotFoundException("Bid not found");
     }
 
-    // Only vendors can submit their own bids
-    if (userRole !== "VENDOR" || bid.vendorId !== userId) {
+    // Only vendors can submit bids
+    if (userRole !== "VENDOR") {
+      throw new ForbiddenException("Only vendors can submit bids");
+    }
+
+    // Check vendor access using same domain matching strategy as getBidById
+    let canAccess = false;
+
+    if (userEmail && bid.vendor?.contactEmail) {
+      const userDomain = userEmail.split('@')[1]?.toLowerCase();
+      const bidDomain = bid.vendor.contactEmail.split('@')[1]?.toLowerCase();
+      const publicDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'mail.com'];
+
+      // Strategy 1: Exact email match
+      if (bid.vendor.contactEmail.toLowerCase() === userEmail.toLowerCase()) {
+        canAccess = true;
+      }
+      // Strategy 2: Domain match
+      else if (userDomain && bidDomain && userDomain === bidDomain && !publicDomains.includes(userDomain)) {
+        canAccess = true;
+      }
+    }
+
+    // Fallback: direct ID comparison
+    if (!canAccess) {
+      canAccess = bid.vendorId === userId;
+    }
+
+    if (!canAccess) {
       throw new ForbiddenException("Access denied");
     }
 

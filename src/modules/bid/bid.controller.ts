@@ -261,6 +261,7 @@ export class BidController {
       user.role,
       ipAddress,
       userAgent,
+      user.email,
     );
   }
 
@@ -294,6 +295,7 @@ export class BidController {
       user.role,
       ipAddress,
       userAgent,
+      user.email,
     );
   }
 }
