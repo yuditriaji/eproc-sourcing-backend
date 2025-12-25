@@ -6,9 +6,10 @@ import {
 import { ZodSchema, ZodError } from 'zod';
 
 export class ZodValidationPipe implements PipeTransform {
-  constructor(private schema: ZodSchema) {}
+  constructor(private schema: ZodSchema) { }
 
   transform(value: unknown, metadata: ArgumentMetadata) {
+    console.log('[ZodValidationPipe] Received value:', typeof value, value);
     try {
       const parsedValue = this.schema.parse(value);
       return parsedValue;
