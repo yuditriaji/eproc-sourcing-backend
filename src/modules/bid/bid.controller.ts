@@ -332,4 +332,64 @@ export class BidController {
       userAgent,
     );
   }
+
+  @Post(":id/accept")
+  @UseGuards(RolesGuard)
+  @Roles("MANAGER", "BUYER", "ADMIN")
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Accept bid",
+    description: "Accept an evaluated bid as the winner",
+  })
+  @ApiResponse({ status: 200, description: "Bid accepted successfully" })
+  @ApiResponse({ status: 403, description: "Access denied" })
+  @ApiResponse({ status: 404, description: "Bid not found" })
+  async acceptBid(
+    @Param("id") id: string,
+    @Body() body: { notes?: string },
+    @Req() req: Request,
+  ) {
+    const user = req.user as any;
+    const ipAddress = req.ip || req.connection.remoteAddress || "unknown";
+    const userAgent = req.get("User-Agent") || "unknown";
+
+    return this.bidService.acceptBid(
+      id,
+      body.notes,
+      user.userId,
+      user.role,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  @Post(":id/reject")
+  @UseGuards(RolesGuard)
+  @Roles("MANAGER", "BUYER", "ADMIN")
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Reject bid",
+    description: "Reject an evaluated bid",
+  })
+  @ApiResponse({ status: 200, description: "Bid rejected successfully" })
+  @ApiResponse({ status: 403, description: "Access denied" })
+  @ApiResponse({ status: 404, description: "Bid not found" })
+  async rejectBid(
+    @Param("id") id: string,
+    @Body() body: { reason?: string },
+    @Req() req: Request,
+  ) {
+    const user = req.user as any;
+    const ipAddress = req.ip || req.connection.remoteAddress || "unknown";
+    const userAgent = req.get("User-Agent") || "unknown";
+
+    return this.bidService.rejectBid(
+      id,
+      body.reason,
+      user.userId,
+      user.role,
+      ipAddress,
+      userAgent,
+    );
+  }
 }

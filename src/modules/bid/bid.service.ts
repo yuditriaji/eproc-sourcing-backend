@@ -806,6 +806,157 @@ export class BidService {
     };
   }
 
+  async acceptBid(
+    bidId: string,
+    notes: string | undefined,
+    userId: string,
+    userRole: string,
+    ipAddress: string,
+    userAgent: string,
+  ) {
+    const bid = await this.prismaService.bid.findUnique({
+      where: { id: bidId },
+      include: {
+        tender: true,
+        vendor: {
+          select: { id: true, name: true, contactEmail: true },
+        },
+      },
+    });
+
+    if (!bid) {
+      throw new NotFoundException("Bid not found");
+    }
+
+    if (!["MANAGER", "BUYER", "ADMIN"].includes(userRole)) {
+      throw new ForbiddenException("Only managers and buyers can accept bids");
+    }
+
+    // Can only accept evaluated bids
+    if (bid.status !== "EVALUATED") {
+      throw new BadRequestException("Can only accept evaluated bids");
+    }
+
+    const acceptedBid = await this.prismaService.bid.update({
+      where: { id: bidId },
+      data: {
+        status: "ACCEPTED",
+        evaluationNotes: notes || bid.evaluationNotes,
+        updatedAt: new Date(),
+      },
+      include: {
+        tender: {
+          select: { id: true, title: true, status: true },
+        },
+        vendor: {
+          select: { id: true, name: true, contactEmail: true },
+        },
+      },
+    });
+
+    // Audit log
+    await this.auditService.log({
+      userId,
+      action: "bid_accepted",
+      targetType: "Bid",
+      targetId: bidId,
+      oldValues: { status: "EVALUATED" },
+      newValues: { status: "ACCEPTED" },
+      ipAddress,
+      userAgent,
+    });
+
+    // Emit event
+    await this.eventService.emit("bid.accepted", {
+      bidId,
+      tenderId: bid.tenderId,
+      vendorId: bid.vendorId,
+      acceptedBy: userId,
+    });
+
+    return {
+      success: true,
+      data: acceptedBid,
+      message: "Bid accepted successfully. You can now create a contract with this vendor.",
+    };
+  }
+
+  async rejectBid(
+    bidId: string,
+    reason: string | undefined,
+    userId: string,
+    userRole: string,
+    ipAddress: string,
+    userAgent: string,
+  ) {
+    const bid = await this.prismaService.bid.findUnique({
+      where: { id: bidId },
+      include: {
+        tender: true,
+        vendor: {
+          select: { id: true, name: true, contactEmail: true },
+        },
+      },
+    });
+
+    if (!bid) {
+      throw new NotFoundException("Bid not found");
+    }
+
+    if (!["MANAGER", "BUYER", "ADMIN"].includes(userRole)) {
+      throw new ForbiddenException("Only managers and buyers can reject bids");
+    }
+
+    // Can only reject evaluated bids
+    if (!["EVALUATED", "SUBMITTED", "UNDER_REVIEW"].includes(bid.status)) {
+      throw new BadRequestException("Can only reject submitted, under review, or evaluated bids");
+    }
+
+    const rejectedBid = await this.prismaService.bid.update({
+      where: { id: bidId },
+      data: {
+        status: "REJECTED",
+        evaluationNotes: reason || bid.evaluationNotes,
+        updatedAt: new Date(),
+      },
+      include: {
+        tender: {
+          select: { id: true, title: true, status: true },
+        },
+        vendor: {
+          select: { id: true, name: true, contactEmail: true },
+        },
+      },
+    });
+
+    // Audit log
+    await this.auditService.log({
+      userId,
+      action: "bid_rejected",
+      targetType: "Bid",
+      targetId: bidId,
+      oldValues: { status: bid.status },
+      newValues: { status: "REJECTED", reason },
+      ipAddress,
+      userAgent,
+    });
+
+    // Emit event
+    await this.eventService.emit("bid.rejected", {
+      bidId,
+      tenderId: bid.tenderId,
+      vendorId: bid.vendorId,
+      rejectedBy: userId,
+      reason,
+    });
+
+    return {
+      success: true,
+      data: rejectedBid,
+      message: "Bid rejected.",
+    };
+  }
+
   private async encryptWithTenantDek(
     obj: any,
   ): Promise<{ ciphertext: string; keyVersion: number }> {
