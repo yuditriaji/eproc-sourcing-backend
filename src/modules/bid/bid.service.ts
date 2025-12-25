@@ -370,46 +370,66 @@ export class BidService {
     if (userRole === "ADMIN" || userRole === "MANAGER" || userRole === "BUYER") {
       canAccess = true;
     } else if (userRole === "VENDOR") {
-      // VENDOR access: Try multiple strategies to verify ownership
+      // VENDOR access: Try multiple strategies to verify ownership (same as getBids)
       console.log(`getBidById VENDOR: userEmail=${userEmail}, bid.vendorId=${bid.vendorId}`);
       console.log(`getBidById VENDOR: bid.vendor.contactEmail=${bid.vendor?.contactEmail}`);
 
-      // Strategy 1: Direct email comparison (most reliable)
+      // Strategy 1: Direct email comparison
       if (userEmail && bid.vendor?.contactEmail) {
         const bidEmail = bid.vendor.contactEmail.toLowerCase().trim();
         const reqEmail = userEmail.toLowerCase().trim();
-        console.log(`getBidById: Comparing emails: bidEmail='${bidEmail}' vs reqEmail='${reqEmail}'`);
 
         if (bidEmail === reqEmail) {
           canAccess = true;
           console.log(`getBidById: Access granted via exact email match`);
-        } else {
-          // Try prefix match
-          const bidPrefix = bidEmail.split('@')[0];
-          const reqPrefix = reqEmail.split('@')[0];
-          if (bidPrefix === reqPrefix) {
-            canAccess = true;
-            console.log(`getBidById: Access granted via email prefix match`);
-          }
         }
       }
 
-      // Strategy 2: Look up vendor by user email
+      // Strategy 2: Email prefix match
+      if (!canAccess && userEmail && bid.vendor?.contactEmail) {
+        const bidPrefix = bid.vendor.contactEmail.split('@')[0].toLowerCase();
+        const reqPrefix = userEmail.split('@')[0].toLowerCase();
+        if (bidPrefix === reqPrefix) {
+          canAccess = true;
+          console.log(`getBidById: Access granted via email prefix match`);
+        }
+      }
+
+      // Strategy 3: Domain match (same as getBids!) - vendor@sam.com can access info@sam.com bids
+      if (!canAccess && userEmail && bid.vendor?.contactEmail && userEmail.includes('@')) {
+        const userDomain = userEmail.split('@')[1]?.toLowerCase();
+        const bidDomain = bid.vendor.contactEmail.split('@')[1]?.toLowerCase();
+
+        // Only match on company domains, not public email providers
+        const publicDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'mail.com'];
+        if (userDomain && bidDomain && userDomain === bidDomain && !publicDomains.includes(userDomain)) {
+          canAccess = true;
+          console.log(`getBidById: Access granted via domain match (${userDomain})`);
+        }
+      }
+
+      // Strategy 4: Look up vendor by user email and compare vendor IDs
       if (!canAccess && userEmail) {
-        const vendor = await this.prismaService.vendor.findFirst({
-          where: {
-            OR: [
-              { contactEmail: { equals: userEmail, mode: 'insensitive' } },
-              { contactEmail: { startsWith: userEmail.split('@')[0], mode: 'insensitive' } },
-            ]
-          },
-          select: { id: true, contactEmail: true },
+        // Use same lookup logic as getBids with domain matching
+        const domain = userEmail.split('@')[1]?.toLowerCase();
+        const publicDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'mail.com'];
+
+        let vendor = await this.prismaService.vendor.findFirst({
+          where: { contactEmail: { equals: userEmail, mode: 'insensitive' } },
+          select: { id: true },
         });
-        console.log(`getBidById: Vendor lookup result:`, vendor);
+
+        // Try domain match if no exact match and not a public domain
+        if (!vendor && domain && !publicDomains.includes(domain)) {
+          vendor = await this.prismaService.vendor.findFirst({
+            where: { contactEmail: { contains: domain, mode: 'insensitive' } },
+            select: { id: true },
+          });
+        }
 
         if (vendor && vendor.id === bid.vendorId) {
           canAccess = true;
-          console.log(`getBidById: Access granted via vendor ID match`);
+          console.log(`getBidById: Access granted via vendor lookup with domain match`);
         }
       }
 
