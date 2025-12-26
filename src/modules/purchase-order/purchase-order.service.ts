@@ -774,7 +774,7 @@ export class PurchaseOrderService {
     const validTransitions: Record<POStatus, POStatus[]> = {
       [POStatus.DRAFT]: [POStatus.PENDING_APPROVAL, POStatus.CANCELLED],
       [POStatus.PENDING_APPROVAL]: [POStatus.APPROVED, POStatus.REJECTED],
-      [POStatus.APPROVED]: [POStatus.IN_PROGRESS, POStatus.CANCELLED],
+      [POStatus.APPROVED]: [POStatus.IN_PROGRESS, POStatus.DELIVERED, POStatus.CANCELLED], // DELIVERED added for direct GR
       [POStatus.REJECTED]: [POStatus.DRAFT], // Can be revised and resubmitted
       [POStatus.IN_PROGRESS]: [POStatus.DELIVERED, POStatus.CANCELLED],
       [POStatus.DELIVERED]: [POStatus.COMPLETED],
