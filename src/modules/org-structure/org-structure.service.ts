@@ -11,32 +11,52 @@ export class OrgStructureService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContext,
-  ) {}
+  ) { }
 
   // Company Code
   listCompanyCodes(q?: string) {
     return this.prisma.companyCode.findMany({
       where: q
         ? {
-            OR: [
-              { code: { contains: q, mode: "insensitive" } },
-              { name: { contains: q, mode: "insensitive" } },
-            ],
-          }
+          OR: [
+            { code: { contains: q, mode: "insensitive" } },
+            { name: { contains: q, mode: "insensitive" } },
+          ],
+        }
         : undefined,
       orderBy: { code: "asc" },
     });
   }
-  createCompanyCode(dto: { code: string; name: string; description?: string }, tenantIdOverride?: string) {
+  async createCompanyCode(dto: { code: string; name: string; description?: string }, tenantIdOverride?: string) {
     const tenantId = tenantIdOverride ?? this.tenantContext.getTenantId();
     if (!tenantId) throw new BadRequestException("Missing tenant context");
-    return this.prisma.companyCode.create({
-      data: {
-        tenantId,
-        code: dto.code,
-        name: dto.name,
-        description: dto.description || null,
-      } as any,
+
+    // Use transaction to create both CompanyCode and OrgUnit
+    return this.prisma.$transaction(async (tx) => {
+      // Create CompanyCode
+      const companyCode = await tx.companyCode.create({
+        data: {
+          tenantId,
+          code: dto.code,
+          name: dto.name,
+          description: dto.description || null,
+        } as any,
+      });
+
+      // Also create OrgUnit for budget compatibility
+      // Use same ID so they can be referenced interchangeably
+      await tx.orgUnit.create({
+        data: {
+          id: companyCode.id, // Use same ID for linking
+          tenantId,
+          name: dto.name,
+          type: 'COMPANY_CODE', // Matches OrgUnitType enum
+          level: 1,
+          companyCode: dto.code,
+        },
+      });
+
+      return companyCode;
     });
   }
   async updateCompanyCode(
@@ -137,11 +157,11 @@ export class OrgStructureService {
     return this.prisma.purchasingOrg.findMany({
       where: q
         ? {
-            OR: [
-              { code: { contains: q, mode: "insensitive" } },
-              { name: { contains: q, mode: "insensitive" } },
-            ],
-          }
+          OR: [
+            { code: { contains: q, mode: "insensitive" } },
+            { name: { contains: q, mode: "insensitive" } },
+          ],
+        }
         : undefined,
       orderBy: { code: "asc" },
     });
