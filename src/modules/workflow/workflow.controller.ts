@@ -296,6 +296,98 @@ export class WorkflowController {
   }
 
   // ============================================================================
+  // INVOICE WORKFLOW: Create Invoice from Goods Receipt
+  // ============================================================================
+  @Post("procurement/create-invoice/:grId")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER)
+  @ApiOperation({ summary: "Create Invoice from Goods Receipt" })
+  @ApiResponseDoc({
+    status: 201,
+    description: "Invoice created successfully",
+  })
+  async createInvoiceFromGR(
+    @Param("grId") grId: string,
+    @Body()
+    invoiceData: {
+      invoiceNumber?: string;
+      invoiceDate?: string;
+      dueDate?: string;
+      items?: any;
+      subtotal?: number;
+      taxAmount?: number;
+      totalAmount?: number;
+      notes?: string;
+    },
+    @Request() req: any,
+  ): Promise<ApiResponse> {
+    try {
+      const result = await this.workflowService.createInvoiceFromGR(
+        grId,
+        invoiceData,
+        req.user.id,
+      );
+
+      return {
+        success: result.success,
+        statusCode: result.success ? HttpStatus.CREATED : HttpStatus.BAD_REQUEST,
+        message: result.message,
+        data: result.data,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: "Failed to create invoice",
+        errors: [error.message],
+      };
+    }
+  }
+
+  // ============================================================================
+  // PAYMENT WORKFLOW: Process Payment from Invoice
+  // ============================================================================
+  @Post("procurement/process-payment/:invoiceId")
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE)
+  @ApiOperation({ summary: "Process Payment for Invoice" })
+  @ApiResponseDoc({
+    status: 200,
+    description: "Payment processed successfully",
+  })
+  async processPaymentFromInvoice(
+    @Param("invoiceId") invoiceId: string,
+    @Body()
+    paymentData: {
+      paymentMethod?: string;
+      reference?: string;
+      notes?: string;
+      paidAt?: string;
+    },
+    @Request() req: any,
+  ): Promise<ApiResponse> {
+    try {
+      const result = await this.workflowService.processPaymentFromInvoice(
+        invoiceId,
+        paymentData,
+        req.user.id,
+      );
+
+      return {
+        success: result.success,
+        statusCode: result.success ? HttpStatus.OK : HttpStatus.BAD_REQUEST,
+        message: result.message,
+        data: result.data,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: "Failed to process payment",
+        errors: [error.message],
+      };
+    }
+  }
+
+  // ============================================================================
   // QUOTATION WORKFLOW: Accept Quotation → Create Contract
   // ============================================================================
 

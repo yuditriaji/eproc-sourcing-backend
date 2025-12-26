@@ -271,10 +271,24 @@ export class WorkflowService {
     userId: string,
   ): Promise<WorkflowTransitionResult> {
     try {
+      // First get the PO to extract tenantId
+      const po = await this.prisma.purchaseOrder.findUnique({
+        where: { id: poId },
+        select: { tenantId: true },
+      });
+
+      if (!po) {
+        return {
+          success: false,
+          message: 'Purchase Order not found',
+        };
+      }
+
       const receiptNumber = await this.generateReceiptNumber();
 
       const receipt = await this.prisma.goodsReceipt.create({
         data: {
+          tenantId: po.tenantId,
           receiptNumber,
           poId,
           receivedDate: receiptData.receivedDate || new Date(),
@@ -283,7 +297,7 @@ export class WorkflowService {
           inspectionNotes: receiptData.inspectionNotes,
           inspectedBy: receiptData.inspectedBy,
           status: "COMPLETE", // Assuming full delivery for now
-        } as any,
+        },
         include: {
           purchaseOrder: {
             include: {
@@ -327,6 +341,138 @@ export class WorkflowService {
       return {
         success: false,
         message: `Failed to create goods receipt: ${error.message}`,
+      };
+    }
+  }
+
+  /**
+   * Invoice Workflow: Create Invoice from Goods Receipt
+   */
+  async createInvoiceFromGR(
+    grId: string,
+    invoiceData: {
+      invoiceNumber?: string;
+      invoiceDate?: string;
+      dueDate?: string;
+      items?: any;
+      subtotal?: number;
+      taxAmount?: number;
+      totalAmount?: number;
+      notes?: string;
+    },
+    userId: string,
+  ): Promise<WorkflowTransitionResult> {
+    try {
+      // Get the GR with PO info
+      const gr = await this.prisma.goodsReceipt.findUnique({
+        where: { id: grId },
+        include: {
+          purchaseOrder: {
+            include: {
+              vendors: { include: { vendor: true } },
+            },
+          },
+        },
+      });
+
+      if (!gr) {
+        return { success: false, message: 'Goods Receipt not found' };
+      }
+
+      const invoiceNumber = invoiceData.invoiceNumber || `INV-${Date.now()}`;
+      const vendorId = gr.purchaseOrder?.vendors?.[0]?.vendorId;
+
+      if (!vendorId) {
+        return { success: false, message: 'No vendor found for this PO' };
+      }
+
+      const invoice = await this.prisma.invoice.create({
+        data: {
+          tenantId: gr.tenantId,
+          invoiceNumber,
+          poId: gr.poId,
+          vendorId,
+          invoiceDate: invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date(),
+          dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          items: invoiceData.items || gr.receivedItems,
+          amount: invoiceData.subtotal || 0,
+          taxAmount: invoiceData.taxAmount || 0,
+          totalAmount: invoiceData.totalAmount || 0,
+          notes: invoiceData.notes,
+          status: 'PENDING',
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Invoice created successfully',
+        data: invoice,
+        nextSteps: ['Approve invoice', 'Process payment'],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to create invoice: ${error.message}`,
+      };
+    }
+  }
+
+  /**
+   * Payment Workflow: Process Payment from Invoice
+   */
+  async processPaymentFromInvoice(
+    invoiceId: string,
+    paymentData: {
+      paymentMethod?: string;
+      reference?: string;
+      notes?: string;
+      paidAt?: string;
+    },
+    userId: string,
+  ): Promise<WorkflowTransitionResult> {
+    try {
+      const invoice = await this.prisma.invoice.findUnique({
+        where: { id: invoiceId },
+      });
+
+      if (!invoice) {
+        return { success: false, message: 'Invoice not found' };
+      }
+
+      // Create payment record (poId is required, get from invoice)
+      const payment = await this.prisma.payment.create({
+        data: {
+          tenantId: invoice.tenantId,
+          paymentNumber: `PAY-${Date.now()}`,
+          invoiceId,
+          poId: invoice.poId || '',
+          amount: invoice.totalAmount,
+          method: paymentData.paymentMethod || 'BANK_TRANSFER',
+          reference: paymentData.reference,
+          processedDate: paymentData.paidAt ? new Date(paymentData.paidAt) : new Date(),
+          notes: paymentData.notes,
+          status: 'PROCESSED',
+        },
+      });
+
+      // Update invoice status to PAID
+      await this.prisma.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          status: 'PAID',
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Payment processed successfully',
+        data: payment,
+        nextSteps: ['Payment complete', 'Transaction recorded'],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to process payment: ${error.message}`,
       };
     }
   }
