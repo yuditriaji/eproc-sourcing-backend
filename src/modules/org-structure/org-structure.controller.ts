@@ -12,7 +12,7 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
-import { IsOptional, IsString } from "class-validator";
+import { IsOptional, IsString, IsNumber, IsEnum, IsIn } from "class-validator";
 import { OrgStructureService } from "./org-structure.service";
 
 class CreateCompanyCodeDto {
@@ -70,8 +70,8 @@ class CreateAssignmentDto {
 
 class CreateOrgUnitDto {
   @IsString() name: string;
-  @IsString() type: 'COMPANY_CODE' | 'PURCHASING_GROUP';
-  level: number;
+  @IsIn(['COMPANY_CODE', 'PURCHASING_GROUP']) type: 'COMPANY_CODE' | 'PURCHASING_GROUP';
+  @IsNumber() level: number;
   @IsOptional() @IsString() parentId?: string;
   @IsOptional() @IsString() companyCodeId?: string;
   @IsOptional() @IsString() companyCode?: string;
