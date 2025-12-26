@@ -68,12 +68,26 @@ class CreateAssignmentDto {
   @IsOptional() @IsString() plantId?: string;
 }
 
+class CreateOrgUnitDto {
+  @IsString() name: string;
+  @IsString() type: 'COMPANY_CODE' | 'PURCHASING_GROUP';
+  level: number;
+  @IsOptional() @IsString() parentId?: string;
+  @IsOptional() @IsString() companyCode?: string;
+  @IsOptional() @IsString() pgCode?: string;
+}
+
+class UpdateOrgUnitDto {
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() parentId?: string;
+}
+
 @ApiTags("Org Structure")
 @ApiBearerAuth()
 @UseGuards(AuthGuard("jwt"))
 @Controller(":tenant/org")
 export class OrgStructureController {
-  constructor(private readonly svc: OrgStructureService) {}
+  constructor(private readonly svc: OrgStructureService) { }
 
   // Company codes
   @Get("company-codes")
@@ -174,5 +188,30 @@ export class OrgStructureController {
   }
   @Delete("porg-assignments/:id") deleteAssignment(@Param("id") id: string) {
     return this.svc.deleteAssignment(id);
+  }
+
+  // OrgUnits (for Budget)
+  @Get("org-units")
+  @ApiOperation({ summary: "List organization units for budgeting" })
+  listOrgUnits(@Query("type") type?: string) {
+    return this.svc.listOrgUnits(type);
+  }
+
+  @Post("org-units")
+  @ApiOperation({ summary: "Create organization unit" })
+  createOrgUnit(@Body() dto: CreateOrgUnitDto, @Req() req: any) {
+    return this.svc.createOrgUnit(dto, req?.tenantId || req?.user?.tenantId);
+  }
+
+  @Put("org-units/:id")
+  @ApiOperation({ summary: "Update organization unit" })
+  updateOrgUnit(@Param("id") id: string, @Body() dto: UpdateOrgUnitDto) {
+    return this.svc.updateOrgUnit(id, dto);
+  }
+
+  @Delete("org-units/:id")
+  @ApiOperation({ summary: "Delete organization unit" })
+  deleteOrgUnit(@Param("id") id: string) {
+    return this.svc.deleteOrgUnit(id);
   }
 }

@@ -263,4 +263,96 @@ export class OrgStructureService {
   deleteAssignment(id: string) {
     return this.prisma.purchasingOrgAssignment.delete({ where: { id } });
   }
+
+  // ==================== OrgUnit (for Budget) ====================
+
+  listOrgUnits(type?: string) {
+    const tenantId = this.tenantContext.getTenantId();
+    return this.prisma.orgUnit.findMany({
+      where: {
+        tenantId,
+        ...(type ? { type: type as any } : {}),
+      },
+      include: {
+        parent: true,
+        children: true,
+      },
+      orderBy: [{ level: "asc" }, { name: "asc" }],
+    });
+  }
+
+  async createOrgUnit(
+    dto: {
+      name: string;
+      type: 'COMPANY_CODE' | 'PURCHASING_GROUP';
+      level: number;
+      parentId?: string;
+      companyCode?: string;
+      pgCode?: string;
+    },
+    tenantIdOverride?: string,
+  ) {
+    const tenantId = tenantIdOverride ?? this.tenantContext.getTenantId();
+    if (!tenantId) throw new BadRequestException("Missing tenant context");
+
+    // Validate parent if provided
+    if (dto.parentId) {
+      const parent = await this.prisma.orgUnit.findFirst({
+        where: { id: dto.parentId, tenantId },
+      });
+      if (!parent) throw new NotFoundException("Parent OrgUnit not found");
+    }
+
+    return this.prisma.orgUnit.create({
+      data: {
+        tenantId,
+        name: dto.name,
+        type: dto.type,
+        level: dto.level,
+        parentId: dto.parentId || null,
+        companyCode: dto.companyCode || null,
+        pgCode: dto.pgCode || null,
+      },
+      include: {
+        parent: true,
+      },
+    });
+  }
+
+  async updateOrgUnit(id: string, dto: { name?: string; parentId?: string }) {
+    const tenantId = this.tenantContext.getTenantId();
+    const orgUnit = await this.prisma.orgUnit.findFirst({
+      where: { id, tenantId }
+    });
+    if (!orgUnit) throw new NotFoundException("OrgUnit not found");
+
+    return this.prisma.orgUnit.update({
+      where: { id },
+      data: {
+        name: dto.name ?? orgUnit.name,
+        parentId: dto.parentId !== undefined ? dto.parentId : orgUnit.parentId,
+      },
+      include: {
+        parent: true,
+      },
+    });
+  }
+
+  async deleteOrgUnit(id: string) {
+    const tenantId = this.tenantContext.getTenantId();
+    const orgUnit = await this.prisma.orgUnit.findFirst({
+      where: { id, tenantId }
+    });
+    if (!orgUnit) throw new NotFoundException("OrgUnit not found");
+
+    // Check if it has budgets
+    const budgetCount = await this.prisma.budget.count({
+      where: { orgUnitId: id },
+    });
+    if (budgetCount > 0) {
+      throw new BadRequestException("Cannot delete OrgUnit with associated budgets");
+    }
+
+    return this.prisma.orgUnit.delete({ where: { id } });
+  }
 }
