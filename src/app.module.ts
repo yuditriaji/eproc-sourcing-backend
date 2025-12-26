@@ -87,6 +87,10 @@ import { InvoiceService } from "./modules/invoice/invoice.service";
 import { PaymentController } from "./modules/payment/payment.controller";
 import { PaymentService } from "./modules/payment/payment.service";
 
+// Goods Receipt Module
+import { GoodsReceiptController } from "./modules/goods-receipt/goods-receipt.controller";
+import { GoodsReceiptService } from "./modules/goods-receipt/goods-receipt.service";
+
 // Quotation Module
 import { QuotationController } from "./modules/quotation/quotation.controller";
 import { QuotationService } from "./modules/quotation/quotation.service";
@@ -201,6 +205,7 @@ const mongooseImports = process.env.MONGODB_URL
     PaymentController,
     QuotationController,
     RFQController,
+    GoodsReceiptController,
   ],
   providers: [
     // Database Services
@@ -232,6 +237,7 @@ const mongooseImports = process.env.MONGODB_URL
     PaymentService,
     QuotationService,
     RFQService,
+    GoodsReceiptService,
 
     // Crypto / KMS
     TenantKmsService,
