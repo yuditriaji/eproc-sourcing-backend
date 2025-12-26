@@ -34,7 +34,7 @@ import {
 @Controller(':tenant/invoices')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class InvoiceController {
-  constructor(private readonly invoiceService: InvoiceService) {}
+  constructor(private readonly invoiceService: InvoiceService) { }
 
   @Post()
   @Roles(UserRoleEnum.VENDOR, UserRoleEnum.ADMIN, UserRoleEnum.FINANCE)
@@ -45,6 +45,15 @@ export class InvoiceController {
   @ApiResponse({ status: 403, description: 'Forbidden' })
   async create(@Body() createDto: CreateInvoiceDto, @Request() req: any) {
     return this.invoiceService.create(createDto, req.user.id);
+  }
+
+  @Get('statistics/summary')
+  @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER)
+  @ApiOperation({ summary: 'Get invoice statistics summary' })
+  @ApiResponse({ status: 200, description: 'Statistics retrieved successfully' })
+  async getStatistics(@Request() req: any) {
+    const stats = await this.invoiceService.getStatistics(req.user.tenantId);
+    return { data: stats };
   }
 
   @Get()
@@ -64,7 +73,7 @@ export class InvoiceController {
   ) {
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 20;
-    
+
     return this.invoiceService.findAll(
       req.user.tenantId,
       req.user.role,

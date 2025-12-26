@@ -63,7 +63,7 @@ export class InvoiceService {
     private events: EventService,
     @Inject(forwardRef(() => BudgetService))
     private budgetService: BudgetService,
-  ) {}
+  ) { }
 
   async create(
     createInvoiceDto: CreateInvoiceDto,
@@ -468,6 +468,36 @@ export class InvoiceService {
       targetType: 'Invoice',
       targetId: id,
     });
+  }
+
+  async getStatistics(tenantId: string) {
+    const where = { tenantId, deletedAt: null };
+
+    const [total, pending, approved, paid, overdue, disputed, cancelled, totalAmountResult] = await Promise.all([
+      this.prisma.invoice.count({ where }),
+      this.prisma.invoice.count({ where: { ...where, status: InvoiceStatus.PENDING } }),
+      this.prisma.invoice.count({ where: { ...where, status: InvoiceStatus.APPROVED } }),
+      this.prisma.invoice.count({ where: { ...where, status: InvoiceStatus.PAID } }),
+      this.prisma.invoice.count({ where: { ...where, status: InvoiceStatus.OVERDUE } }),
+      this.prisma.invoice.count({ where: { ...where, status: InvoiceStatus.DISPUTED } }),
+      this.prisma.invoice.count({ where: { ...where, status: InvoiceStatus.CANCELLED } }),
+      this.prisma.invoice.aggregate({
+        where: { ...where, status: { notIn: [InvoiceStatus.PAID, InvoiceStatus.CANCELLED] } },
+        _sum: { totalAmount: true },
+      }),
+    ]);
+
+    return {
+      total,
+      pending,
+      pendingApproval: pending, // alias for frontend
+      approved,
+      paid,
+      overdue,
+      disputed,
+      cancelled,
+      totalAmount: totalAmountResult._sum.totalAmount?.toNumber() || 0,
+    };
   }
 
   private async generateInvoiceNumber(): Promise<string> {
