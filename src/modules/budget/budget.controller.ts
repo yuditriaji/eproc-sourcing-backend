@@ -40,7 +40,7 @@ import {
 @Controller(':tenant/budgets')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class BudgetController {
-  constructor(private readonly budgetService: BudgetService) {}
+  constructor(private readonly budgetService: BudgetService) { }
 
   @Post()
   @Roles(UserRoleEnum.ADMIN, UserRoleEnum.FINANCE, UserRoleEnum.MANAGER)
@@ -80,14 +80,30 @@ export class BudgetController {
   })
   @ApiQuery({ name: 'fiscalYear', required: false, type: String })
   @ApiQuery({ name: 'orgUnitId', required: false, type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'pageSize', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'status', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Budgets retrieved successfully' })
   async findAll(
     @Param('tenant') tenant: string,
     @Query('fiscalYear') fiscalYear?: string,
     @Query('orgUnitId') orgUnitId?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
     @Request() req?,
   ) {
-    return this.budgetService.findAll(req.user.tenantId, fiscalYear, orgUnitId);
+    return this.budgetService.findAll(
+      req.user.tenantId,
+      fiscalYear,
+      orgUnitId,
+      page ? parseInt(page, 10) : 1,
+      pageSize ? parseInt(pageSize, 10) : 20,
+      search,
+      status,
+    );
   }
 
   @Get(':id')

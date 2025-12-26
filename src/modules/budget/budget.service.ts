@@ -30,7 +30,7 @@ export class BudgetService {
     private prisma: PrismaService,
     private audit: AuditService,
     private events: EventService,
-  ) {}
+  ) { }
 
   /**
    * Create a new budget for an organization unit
@@ -642,27 +642,47 @@ export class BudgetService {
   }
 
   /**
-   * Get all budgets for a tenant
+   * Get all budgets for a tenant (paginated)
    */
   async findAll(
     tenantId: string,
     fiscalYear?: string,
     orgUnitId?: string,
-  ): Promise<Budget[]> {
-    return this.prisma.budget.findMany({
-      where: {
-        tenantId,
-        deletedAt: null,
-        ...(fiscalYear && { fiscalYear }),
-        ...(orgUnitId && { orgUnitId }),
-      },
-      include: {
-        orgUnit: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    page: number = 1,
+    pageSize: number = 20,
+    search?: string,
+    status?: string,
+  ): Promise<{ data: Budget[]; total: number; page: number; pageSize: number }> {
+    const where = {
+      tenantId,
+      deletedAt: null,
+      ...(fiscalYear && { fiscalYear }),
+      ...(orgUnitId && { orgUnitId }),
+      ...(status && status !== 'all' && { status }),
+      ...(search && {
+        OR: [
+          { fiscalYear: { contains: search, mode: 'insensitive' as const } },
+          { orgUnit: { name: { contains: search, mode: 'insensitive' as const } } },
+        ],
+      }),
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.budget.findMany({
+        where,
+        include: {
+          orgUnit: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.budget.count({ where }),
+    ]);
+
+    return { data, total, page, pageSize };
   }
 
   /**
