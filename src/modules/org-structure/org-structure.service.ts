@@ -276,6 +276,7 @@ export class OrgStructureService {
       include: {
         parent: true,
         children: true,
+        linkedCompanyCode: true, // Include linked CompanyCode for SAP-style display
       },
       orderBy: [{ level: "asc" }, { name: "asc" }],
     });
@@ -287,7 +288,8 @@ export class OrgStructureService {
       type: 'COMPANY_CODE' | 'PURCHASING_GROUP';
       level: number;
       parentId?: string;
-      companyCode?: string;
+      companyCodeId?: string;  // FK to CompanyCode table
+      companyCode?: string;    // SAP code string for display
       pgCode?: string;
     },
     tenantIdOverride?: string,
@@ -303,6 +305,14 @@ export class OrgStructureService {
       if (!parent) throw new NotFoundException("Parent OrgUnit not found");
     }
 
+    // Validate companyCodeId if provided
+    if (dto.companyCodeId) {
+      const companyCode = await this.prisma.companyCode.findFirst({
+        where: { id: dto.companyCodeId, tenantId },
+      });
+      if (!companyCode) throw new NotFoundException("CompanyCode not found");
+    }
+
     return this.prisma.orgUnit.create({
       data: {
         tenantId,
@@ -310,11 +320,13 @@ export class OrgStructureService {
         type: dto.type,
         level: dto.level,
         parentId: dto.parentId || null,
+        companyCodeId: dto.companyCodeId || null,
         companyCode: dto.companyCode || null,
         pgCode: dto.pgCode || null,
       },
       include: {
         parent: true,
+        linkedCompanyCode: true,
       },
     });
   }

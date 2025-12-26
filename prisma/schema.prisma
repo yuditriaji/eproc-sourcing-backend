@@ -840,16 +840,18 @@ model OrgUnit {
   id                    String                @id @default(cuid())
   tenantId              String
   parentId              String?
+  companyCodeId         String?               // FK to CompanyCode for SAP-style linking
   level                 Int
   name                  String
   type                  OrgUnitType
-  companyCode           String?
+  companyCode           String?               // SAP code string for display
   pgCode                String?
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
   tenant                Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   parent                OrgUnit?              @relation("OrgUnitHierarchy", fields: [parentId], references: [id])
   children              OrgUnit[]             @relation("OrgUnitHierarchy")
+  linkedCompanyCode     CompanyCode?          @relation("OrgUnitCompanyCode", fields: [companyCodeId], references: [id])
   vendors               Vendor[]              @relation("VendorOrgUnit")
   tenders               Tender[]              @relation("TenderOrgUnit")
   purchaseOrders        PurchaseOrder[]       @relation("POOrgUnit")
@@ -861,6 +863,7 @@ model OrgUnit {
   @@unique([tenantId, companyCode])
   @@unique([tenantId, pgCode])
   @@index([tenantId, type])
+  @@index([tenantId, companyCodeId])
   @@map("org_units")
 }
 
@@ -880,6 +883,7 @@ model CompanyCode {
   purchaseRequisitions     PurchaseRequisition[]
   purchaseOrders           PurchaseOrder[]
   tenders                  Tender[]
+  orgUnits                 OrgUnit[]                 @relation("OrgUnitCompanyCode")
 
   @@unique([tenantId, code])
   @@index([tenantId, code])

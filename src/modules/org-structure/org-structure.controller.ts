@@ -73,6 +73,7 @@ class CreateOrgUnitDto {
   @IsString() type: 'COMPANY_CODE' | 'PURCHASING_GROUP';
   level: number;
   @IsOptional() @IsString() parentId?: string;
+  @IsOptional() @IsString() companyCodeId?: string;
   @IsOptional() @IsString() companyCode?: string;
   @IsOptional() @IsString() pgCode?: string;
 }
