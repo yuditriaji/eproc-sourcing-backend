@@ -154,6 +154,46 @@ export class InvoiceService {
         },
       });
 
+      // Create InvoiceItem records (SAP header-detail pattern)
+      const itemsArray = Array.isArray(createInvoiceDto.items)
+        ? createInvoiceDto.items
+        : createInvoiceDto.items?.lineItems || [];
+
+      if (itemsArray.length > 0) {
+        // If linked to PO, try to match items to POItems for 3-way matching
+        let poItemsMap: Map<number, string> = new Map();
+        if (createInvoiceDto.poId) {
+          const poItems = await this.prisma.pOItem.findMany({
+            where: { poId: createInvoiceDto.poId },
+          });
+          poItems.forEach(item => poItemsMap.set(item.itemNumber, item.id));
+        }
+
+        const invoiceItemsData = itemsArray.map((item: any, idx: number) => {
+          const quantity = parseFloat(item.quantity) || 1;
+          const unitPrice = parseFloat(item.unitPrice || item.price || 0);
+          const itemTotal = quantity * unitPrice;
+          const itemNumber = (idx + 1) * 10; // SAP style: 10, 20, 30...
+
+          return {
+            tenantId: user.tenantId,
+            invoiceId: invoice.id,
+            itemNumber,
+            poItemId: item.poItemId || poItemsMap.get(itemNumber) || null,
+            description: item.description || `Item ${idx + 1}`,
+            quantity,
+            unitPrice,
+            consumedAmount: itemTotal,
+            totalAmount: item.amount || item.totalAmount || itemTotal,
+            transferTraceId: createInvoiceDto.transferTraceId,
+          };
+        });
+
+        await this.prisma.invoiceItem.createMany({
+          data: invoiceItemsData,
+        });
+      }
+
       // Audit log
       await this.audit.log({
         userId,
@@ -217,6 +257,9 @@ export class InvoiceService {
           vendor: true,
           purchaseOrder: true,
           currency: true,
+          invoiceItems: {
+            orderBy: { itemNumber: 'asc' },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -242,9 +285,22 @@ export class InvoiceService {
       },
       include: {
         vendor: true,
-        purchaseOrder: true,
+        purchaseOrder: {
+          include: {
+            poItems: {
+              orderBy: { itemNumber: 'asc' },
+            },
+          },
+        },
         currency: true,
         payments: true,
+        invoiceItems: {
+          orderBy: { itemNumber: 'asc' },
+          include: {
+            poItem: true,
+          },
+        },
+        budget: true,
       },
     });
 

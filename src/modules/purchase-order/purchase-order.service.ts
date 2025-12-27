@@ -218,13 +218,37 @@ export class PurchaseOrderService {
         await this.addVendors(po.id, createPODto.vendorIds, createdById);
       }
 
-      // Budget deduction if budgetId provided
-      if (createPODto.budgetId) {
-        // Extract items for budget tracking
-        const poItems = Array.isArray(createPODto.items)
-          ? createPODto.items
-          : createPODto.items?.lineItems || [];
+      // Create POItem records from items JSON (SAP header-detail pattern)
+      const itemsArray = Array.isArray(createPODto.items)
+        ? createPODto.items
+        : createPODto.items?.lineItems || [];
 
+      if (itemsArray.length > 0) {
+        const poItemsData = itemsArray.map((item: any, idx: number) => {
+          const quantity = parseFloat(item.quantity) || 1;
+          const unitPrice = parseFloat(item.unitPrice || item.price || 0);
+          const itemTotal = quantity * unitPrice;
+
+          return {
+            tenantId: user.tenantId,
+            poId: po.id,
+            itemNumber: (idx + 1) * 10, // SAP style: 10, 20, 30...
+            description: item.description || `Item ${idx + 1}`,
+            quantity,
+            unitPrice,
+            consumedAmount: itemTotal,
+            totalAmount: item.amount || item.totalAmount || itemTotal,
+            transferTraceId: createPODto.transferTraceId,
+          };
+        });
+
+        await this.prisma.pOItem.createMany({
+          data: poItemsData,
+        });
+      }
+
+      // Budget deduction if budgetId provided (uses existing POItems)
+      if (createPODto.budgetId) {
         await this.budgetService.deduct(
           user.tenantId,
           {
@@ -233,11 +257,6 @@ export class PurchaseOrderService {
             transferTraceId: createPODto.transferTraceId,
             targetType: 'PO',
             targetId: po.id,
-            items: poItems.map((item: any, idx: number) => ({
-              itemNumber: idx + 1,
-              consumedAmount: item.amount || item.totalAmount || 0,
-              transferTraceId: item.transferTraceId || createPODto.transferTraceId,
-            })),
           },
           createdById,
         );
@@ -313,6 +332,9 @@ export class PurchaseOrderService {
               vendor: true,
             },
           },
+          poItems: {
+            orderBy: { itemNumber: 'asc' },
+          },
           _count: {
             select: {
               goodsReceipts: true,
@@ -351,6 +373,12 @@ export class PurchaseOrderService {
             vendor: true,
           },
         },
+        poItems: {
+          orderBy: { itemNumber: 'asc' },
+          include: {
+            budgetAllocation: true,
+          },
+        },
         goodsReceipts: {
           include: {
             documents: true,
@@ -360,6 +388,7 @@ export class PurchaseOrderService {
           include: {
             vendor: true,
             payments: true,
+            invoiceItems: true,
           },
         },
         payments: {
@@ -368,6 +397,7 @@ export class PurchaseOrderService {
           },
         },
         documents: true,
+        budget: true,
       },
     });
 
